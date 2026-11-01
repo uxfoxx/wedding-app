@@ -126,3 +126,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
+
+/// Account settings when no wedding is open (planner and vendor workspaces).
+class AccountScreen extends StatelessWidget {
+  const AccountScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(s.t('settings'))),
+      body: PageBody(children: [
+        Text(s.t('language'), style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          segments: const [ButtonSegment(value: 'en', label: Text('English')), ButtonSegment(value: 'si', label: Text('සිංහල')), ButtonSegment(value: 'ta', label: Text('தமிழ்'))],
+          selected: {s.locale},
+          onSelectionChanged: (v) => s.setLocale(v.first),
+        ),
+        const Divider(height: 40),
+        ListTile(contentPadding: EdgeInsets.zero, title: Text(s.user?['email'] as String? ?? s.user?['phone'] as String? ?? '')),
+        OutlinedButton(
+          onPressed: () async {
+            await s.signOut();
+            if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+          },
+          child: Text(s.t('signOut')),
+        ),
+      ]),
+    );
+  }
+}

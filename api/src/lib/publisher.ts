@@ -38,7 +38,7 @@ export async function loadRenderInput(weddingId: string, db: Queryable = pool) {
       showBranding: info.limits.branding,
       apiUrl: `${config.publicApiUrl}/api`,
       siteUrl: `${config.guestBaseUrl}/${w.slug}/`,
-      signupUrl: config.webPanelUrl,
+      signupUrl: `${config.webPanelUrl}/#from=${w.slug}`,
       updates: updates.map((u) => ({ ...u, created_at: new Date(u.created_at).toISOString() })),
       features: { uploads: info.limits.uploads && w.settings?.uploads_enabled !== false, seating: info.limits.seating && !!w.settings?.seating_published },
       planner,

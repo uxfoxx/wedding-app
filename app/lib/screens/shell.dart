@@ -6,6 +6,7 @@ import 'guests_tab.dart';
 import 'home_tab.dart';
 import 'invitation_tab.dart';
 import 'onboarding.dart';
+import 'planner_home.dart';
 import 'plan_tab.dart';
 import 'rsvps_tab.dart';
 import 'send_queue.dart';
@@ -24,6 +25,7 @@ class _ShellState extends State<Shell> {
   int index = 0;
 
   void go(String key) {
+    final s0 = AppScope.read(context);
     switch (key) {
       case 'invitation':
       case 'choose_template':
@@ -38,6 +40,11 @@ class _ShellState extends State<Shell> {
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SendQueueScreen(kind: 'reminder')));
       case 'rsvps':
         setState(() => index = 3);
+      case 'seating':
+      case 'run_sheet':
+      case 'checklist':
+        setState(() => index = s0.isAdvanced ? 4 : index);
+        if (!s0.isAdvanced) Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Plan')), body: const PlanTab())));
       case 'add_event':
       case 'plan':
         final s = AppScope.read(context);
@@ -68,7 +75,8 @@ class _ShellState extends State<Shell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: PopupMenuButton<String>(
+        leading: s.inPlannerWorkspace ? IconButton(tooltip: 'All client weddings', icon: const Icon(Icons.arrow_back), onPressed: s.closeWedding) : null,
+        title: s.inPlannerWorkspace ? Text('${w['partner1']} & ${w['partner2']}', overflow: TextOverflow.ellipsis) : PopupMenuButton<String>(
           tooltip: 'Switch wedding',
           onSelected: (id) {
             if (id == 'new') {
@@ -88,6 +96,7 @@ class _ShellState extends State<Shell> {
         ),
         actions: [
           if (!s.isPaid) TextButton(onPressed: () => go('upgrade'), child: Text(s.t('pass'))),
+          const WorkspaceMenu(),
           if (s.isStaff)
             IconButton(tooltip: s.t('admin'), icon: const Icon(Icons.admin_panel_settings_outlined), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminScreen()))),
           IconButton(tooltip: s.t('settings'), icon: const Icon(Icons.settings_outlined), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()))),

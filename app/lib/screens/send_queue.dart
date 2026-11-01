@@ -60,7 +60,7 @@ class _SendQueueScreenState extends State<SendQueueScreen> with WidgetsBindingOb
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final th = Theme.of(context);
-    final title = widget.kind == 'invite' ? s.t('sendInvites') : s.t('followUps');
+    final title = switch (widget.kind) { 'invite' => s.t('sendInvites'), 'reminder' => s.t('followUps'), 'update' => 'Send the update', _ => 'Thank-you messages' };
     Widget body;
     if (error != null) {
       body = EmptyState(icon: Icons.info_outline, title: title, body: error!, action: s.t('back'), onAction: () => Navigator.pop(context));
@@ -86,7 +86,7 @@ class _SendQueueScreenState extends State<SendQueueScreen> with WidgetsBindingOb
         const SizedBox(height: 12),
         Row(children: [
           Expanded(child: Text(g['name'] as String, style: th.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700))),
-          if (g['vip'] == true) Chip(label: Text(widget.kind == 'reminder' ? s.t('callFirst') : 'VIP')),
+          if (g['vip'] == true && widget.kind != 'thanks') Chip(label: Text(widget.kind == 'reminder' ? s.t('callFirst') : 'VIP')),
         ]),
         Text(g['phone'] as String? ?? 'No number: WhatsApp will ask who to send to'),
         const SizedBox(height: 12),

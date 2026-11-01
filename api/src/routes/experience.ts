@@ -163,7 +163,7 @@ export default async function experienceRoutes(app: FastifyInstance) {
     const path = `media/${w.id}/${randomToken(12)}.${type.ext}`;
     const u = await one(`INSERT INTO uploads (wedding_id, kind, path, content_type, size_bytes, uploader, guest_id, upload_token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
       [w.id, type.kind, path, b.content_type, size, str(b.name, 'name', { max: 60, optional: true }), await guestIdFromToken(w.id, b.token), token]);
-    return { id: u.id, upload_token: token, upload_url: uploadUrl(token), method: 'PUT' };
+    return { id: u.id, upload_token: token, upload_url: uploadUrl(`g_${token}`), method: 'PUT' };
   });
 
   // Step 2: confirm the upload finished. Photos go to the wall now, or wait for the couple's approval.
@@ -183,8 +183,7 @@ export default async function experienceRoutes(app: FastifyInstance) {
 
   // Development stand-in for object storage (production uses presigned URLs on R2/S3).
   if (config.env !== 'production') {
-    app.addContentTypeParser(/^(image|video|audio)\//, { parseAs: 'buffer', bodyLimit: pricing.maxVideoBytes }, (_req, body, done) => done(null, body));
-    app.put('/dev-upload/:token', { bodyLimit: pricing.maxVideoBytes }, async (req) => {
+    app.put('/dev-upload/g_:token', { bodyLimit: pricing.maxVideoBytes }, async (req) => {
       const u = await one(`SELECT path, content_type, size_bytes FROM uploads WHERE upload_token=$1 AND status='uploading'`, [(req.params as any).token]);
       if (!u) throw notFound();
       const body = req.body as Buffer;

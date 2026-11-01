@@ -3,19 +3,25 @@
 import { pool, q } from '../db.ts';
 import { publishWedding } from './publisher.ts';
 import { purgeExpiredContacts } from './privacy.ts';
+import { publishVendorPage } from './vendorPage.ts';
+import { sendAutoReminders } from './whatsappBusiness.ts';
 
 type Handler = (payload: any) => Promise<void>;
 
 export const handlers: Record<string, Handler> = {
   publish: async (p) => { await publishWedding(p.weddingId); },
   purge_contacts: async () => { await purgeExpiredContacts(); },
+  publish_vendor: async (p) => { await publishVendorPage(p.vendorId); },
+  auto_reminders: async () => { await sendAutoReminders(); },
 };
 
-export async function enqueue(type: string, payload: Record<string, unknown> = {}, opts: { key?: string; delayMs?: number } = {}) {
+export async function enqueue(type: string, payload: Record<string, unknown> = {}, opts: { key?: string; delayMs?: number; once?: boolean } = {}) {
+  // once: never run the same key twice (daily jobs), not just "not twice at the same time".
   await pool.query(
-    `INSERT INTO jobs (type, key, payload, run_at) VALUES ($1, $2, $3, now() + ($4 || ' milliseconds')::interval)
+    `INSERT INTO jobs (type, key, payload, run_at) SELECT $1, $2, $3, now() + ($4 || ' milliseconds')::interval
+     WHERE NOT ($5 AND EXISTS (SELECT 1 FROM jobs WHERE key = $2))
      ON CONFLICT (key) WHERE done_at IS NULL DO NOTHING`,
-    [type, opts.key ?? null, JSON.stringify(payload), String(opts.delayMs ?? 0)],
+    [type, opts.key ?? null, JSON.stringify(payload), String(opts.delayMs ?? 0), opts.once === true],
   );
 }
 
@@ -55,7 +61,13 @@ export function startWorker(intervalMs = 1000) {
     busy = true;
     try { await runDueJobs(); } catch (e) { console.error('job worker', e); } finally { busy = false; }
   }, intervalMs);
-  // Daily privacy purge.
-  enqueue('purge_contacts', {}, { key: 'purge_contacts:' + new Date().toISOString().slice(0, 10) }).catch(() => {});
+  // Daily jobs: privacy purge, and automatic WhatsApp reminders when the Business Platform is on.
+  const daily = () => {
+    const day = new Date().toISOString().slice(0, 10);
+    enqueue('purge_contacts', {}, { key: 'purge_contacts:' + day, once: true }).catch(() => {});
+    enqueue('auto_reminders', {}, { key: 'auto_reminders:' + day, once: true }).catch(() => {});
+  };
+  daily();
+  setInterval(daily, 3600_000).unref();
 }
 export function stopWorker() { if (timer) clearInterval(timer); }

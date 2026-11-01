@@ -52,7 +52,18 @@ export const wordings = [
   W('ta', 'religious', 'nikah', 'அல்லாஹ்வின் திருப்பெயரால், {couple} அவர்களின் நிக்காஹ் {date} அன்று {venue} இல் நடைபெறும். தங்கள் வருகையை வேண்டுகிறோம்.'),
 ];
 
+export const vendorCategories = [
+  ['photographers', 'Photographers & videographers', true], ['venues', 'Venues & hotels', true], ['decorators', 'Decorators & florists', true],
+  ['caterers', 'Caterers & cakes', true], ['makeup', 'Makeup & hair', true], ['bridal', 'Bridal designers & tailors', true],
+  ['music', 'DJs & bands', true], ['planners', 'Wedding planners', true],
+  // Later
+  ['jewellery', 'Jewellery', false], ['cars', 'Wedding cars', false], ['printers', 'Invitation printers', false], ['travel', 'Honeymoon travel', false], ['ceremonial', 'Ceremonial support', false],
+] as const;
+
 export async function seed() {
+  for (const [i, [id, name, active]] of vendorCategories.entries()) {
+    await pool.query(`INSERT INTO vendor_categories (id, name, active, sort) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`, [id, name, active, i]);
+  }
   for (const t of templates) {
     await pool.query(
       `INSERT INTO templates (id, name, category, premium, layout, sort) VALUES ($1,$2,$3,$4,$5,$6)

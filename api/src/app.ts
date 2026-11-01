@@ -14,6 +14,8 @@ import adminRoutes from './routes/admin.ts';
 import plannerRoutes from './routes/planners.ts';
 import planningRoutes from './routes/planning.ts';
 import experienceRoutes from './routes/experience.ts';
+import vendorRoutes from './routes/vendors.ts';
+import growthRoutes from './routes/growth.ts';
 
 // Tiny per-IP, per-route rate limiter (requests per minute) for public and sign-in endpoints.
 function rateLimiter(app: FastifyInstance) {
@@ -60,6 +62,10 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(async (api) => {
     rateLimiter(api);
+    // Development stand-in for object storage accepts raw file bytes (production uploads go to R2/S3).
+    if (config.env !== 'production') {
+      api.addContentTypeParser(/^(image|video|audio)\//, { parseAs: 'buffer', bodyLimit: 150 * 1024 * 1024 }, (_req, body, done) => done(null, body));
+    }
     api.get('/health', async () => ({ ok: true }));
     await api.register(authRoutes);
     await api.register(weddingRoutes);
@@ -70,6 +76,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     await api.register(plannerRoutes);
     await api.register(planningRoutes);
     await api.register(experienceRoutes);
+    await api.register(vendorRoutes);
+    await api.register(growthRoutes);
   }, { prefix: '/api' });
 
   // Development: serve published guest pages (stand-in for the CDN) and the Flutter web panel.

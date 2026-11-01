@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
+import 'budget.dart';
+import 'experience.dart';
+import 'planner_tools.dart';
+import 'seating.dart';
 import 'upgrade.dart';
 
 const eventKinds = {
@@ -8,43 +12,72 @@ const eventKinds = {
   'registration': 'Registration', 'reception': 'Reception', 'homecoming': 'Homecoming', 'engagement': 'Engagement', 'other': 'Other',
 };
 
-/// Events (Advanced Mode "Plan" tab). Seating, budget, checklist and run sheet arrive in Phase 2.
+/// Plan hub (Advanced Mode): events, seating, guest experience and planning tools.
 class PlanTab extends StatelessWidget {
   const PlanTab({super.key});
 
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final events = (s.summary?['events'] as List?) ?? [];
-    return PageBody(children: [
-      Text(s.t('events'), style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 8),
-      for (final e in events)
-        Card(
+    final th = Theme.of(context);
+    void open(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
+    Widget tile(IconData icon, String title, String sub, Widget screen, {bool paid = false}) => Card(
           child: ListTile(
-            title: Text((e['title'] ?? eventKinds[e['kind']]) as String),
-            subtitle: Text([fmtSl(e['starts_at'] as String), if (e['venue'] != null) e['venue'], if (e['nekath'] != null) e['nekath']].join('\n')),
-            isThreeLine: true,
-            trailing: const Icon(Icons.edit_outlined),
-            onTap: s.canEditAll ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EventEditor(event: e as Map<String, dynamic>))) : null,
+            leading: Icon(icon, color: th.colorScheme.primary),
+            title: Text(title),
+            subtitle: Text(sub),
+            trailing: paid && !s.isPaid ? const Icon(Icons.lock_outline) : const Icon(Icons.chevron_right),
+            onTap: () => paid && !s.isPaid ? open(const UpgradeScreen()) : open(screen),
           ),
-        ),
+        );
+    return PageBody(maxWidth: 900, children: [
+      const ReadinessCard(),
       const SizedBox(height: 8),
-      if (s.canEditAll)
-        OutlinedButton.icon(
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EventEditor())),
-          icon: const Icon(Icons.add),
-          label: Text(s.t('addEvent')),
-        ),
-      const SizedBox(height: 24),
-      Card(
-        child: ListTile(
-          leading: const Icon(Icons.upcoming_outlined),
-          title: const Text('Coming soon'),
-          subtitle: const Text('Seating plan, budget, checklist and wedding-day run sheet.'),
-        ),
-      ),
+      Text('The day', style: th.textTheme.titleMedium),
+      tile(Icons.event_outlined, s.t('events'), 'Ceremonies, times, venues, programme', const EventsScreen()),
+      tile(Icons.table_restaurant_outlined, 'Seating', 'Tables, suggested plan, Find your seat', const SeatingScreen(), paid: true),
+      tile(Icons.celebration_outlined, 'Guest experience', 'Live updates, menu, photos, guestbook, songs', const ExperienceScreen()),
+      tile(Icons.schedule_outlined, 'Run sheet', 'Wedding-day timeline and who does what', const RunSheetScreen(), paid: true),
+      const SizedBox(height: 8),
+      Text('Planning', style: th.textTheme.titleMedium),
+      tile(Icons.checklist, 'Checklist', 'Suggested tasks by months before the wedding', const TasksScreen(kind: 'checklist'), paid: true),
+      tile(Icons.task_alt, 'Tasks', 'To-dos with due dates and owners', const TasksScreen(kind: 'task')),
+      tile(Icons.payments_outlined, 'Budget', 'Estimates, payments and what is due', const BudgetScreen(), paid: true),
+      tile(Icons.print_outlined, 'Reports', 'Guest list, seating, run sheet, QR board: print or save as PDF', const ReportsScreen()),
+      if (s.isPlanner && s.wedding['planner_id'] != null) tile(Icons.sticky_note_2_outlined, 'Client notes and team', 'Private to your planner team', const ClientNotesScreen()),
     ]);
+  }
+}
+
+/// Events list (was the whole Plan tab in Phase 1).
+class EventsScreen extends StatelessWidget {
+  const EventsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final events = (s.summary?['events'] as List?) ?? [];
+    return Scaffold(
+      appBar: AppBar(title: Text(s.t('events'))),
+      body: PageBody(children: [
+        for (final e in events)
+          Card(
+            child: ListTile(
+              title: Text((e['title'] ?? eventKinds[e['kind']]) as String),
+              subtitle: Text([fmtSl(e['starts_at'] as String), if (e['venue'] != null) e['venue'], if (e['nekath'] != null) e['nekath']].join('\n')),
+              isThreeLine: true,
+              trailing: const Icon(Icons.edit_outlined),
+              onTap: s.canEditAll ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EventEditor(event: e as Map<String, dynamic>))) : null,
+            ),
+          ),
+        const SizedBox(height: 8),
+        if (s.canEditAll)
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EventEditor())),
+            icon: const Icon(Icons.add),
+            label: Text(s.t('addEvent')),
+          ),
+      ]),
+    );
   }
 }
 

@@ -47,7 +47,7 @@ function cleanInvitation(b: any) {
 
 export async function weddingSummary(weddingId: string, role: string) {
   const w = await one(`SELECT id, kind, partner1, partner2, wedding_type, district, expected_guests, mode, language, plan, paid_at,
-      template_id, invitation, slug, open_link_token, published_at, created_at FROM weddings WHERE id=$1`, [weddingId]);
+      template_id, invitation, slug, open_link_token, published_at, created_at, planner_id FROM weddings WHERE id=$1`, [weddingId]);
   const events = await q('SELECT * FROM events WHERE wedding_id=$1 ORDER BY starts_at, sort', [weddingId]);
   const c = await one(`SELECT count(*)::int AS guests, count(*) FILTER (WHERE sent_at IS NOT NULL)::int AS sent,
       count(*) FILTER (WHERE opened_at IS NOT NULL)::int AS opened,
@@ -101,6 +101,15 @@ export default async function weddingRoutes(app: FastifyInstance) {
           b.expected_guests ? int(b.expected_guests, 'expected_guests', 1, 5000) : null, mode, language, randomToken(9),
           b.template_id ? str(b.template_id, 'template_id', { max: 60 }) : null], c);
       await c.query(`INSERT INTO wedding_members (wedding_id, user_id, role) VALUES ($1,$2,'owner')`, [w.id, u.id]);
+      // Growth: who brought this couple (a friend's code, a partner QR code, or a guest page).
+      const code = typeof b.code === 'string' ? b.code.trim().toUpperCase() : '';
+      if (code) {
+        const partner = (await c.query('SELECT code FROM partner_codes WHERE code=$1 AND active', [code])).rows[0];
+        const ref = partner ? null : (await c.query('SELECT code, user_id FROM referral_codes WHERE code=$1', [code])).rows[0];
+        if (partner) { await c.query('UPDATE weddings SET partner_code=$2 WHERE id=$1', [w.id, code]); await c.query('UPDATE partner_codes SET uses=uses+1 WHERE code=$1', [code]); }
+        else if (ref && ref.user_id !== u.id) await c.query('UPDATE weddings SET referral_code=$2 WHERE id=$1', [w.id, code]);
+      }
+      if (typeof b.from_slug === 'string' && /^[A-Za-z0-9_-]{6,20}$/.test(b.from_slug)) await c.query('UPDATE weddings SET source_slug=$2 WHERE id=$1', [w.id, b.from_slug]);
       if (b.event?.starts_at) {
         const ek = kind === 'wedding' ? DEFAULT_EVENT[type] : kind === 'other' ? 'other' : kind;
         await c.query(`INSERT INTO events (wedding_id, kind, starts_at, venue, address, maps_url) VALUES ($1,$2,$3,$4,$5,$6)`,
@@ -133,7 +142,8 @@ export default async function weddingRoutes(app: FastifyInstance) {
     if (b.mode !== undefined) set('mode', oneOf(b.mode, 'mode', ['easy', 'advanced'] as const));
     if (b.language !== undefined) set('language', oneOf(b.language, 'language', LANGS));
     if (b.template_id !== undefined) {
-      const t = await one('SELECT id, premium FROM templates WHERE id=$1 AND published', [b.template_id]);
+      const t = await one(`SELECT t.id, t.premium FROM templates t, weddings w WHERE t.id=$1 AND t.published AND w.id=$2
+        AND (t.partner_code IS NULL OR t.partner_code = w.partner_code)`, [b.template_id, a.weddingId]);
       if (!t) throw bad('invalid_template');
       // Premium designs can be previewed by anyone (preview?template=...) but only chosen with the pass.
       if (t.premium && !(await planInfo(a.weddingId)).limits.premiumTemplates) {
@@ -266,7 +276,12 @@ export default async function weddingRoutes(app: FastifyInstance) {
   });
 
   // ---- Templates, wording, preview, publish ----
-  app.get('/templates', async () => ({ templates: await q('SELECT id, name, category, premium, layout FROM templates WHERE published ORDER BY sort') }));
+  // Co-branded templates appear only for weddings that came through that partner's code.
+  app.get('/templates', async (req) => {
+    const wid = (req.query as any).wedding;
+    const code = wid && /^[0-9a-f-]{36}$/i.test(wid) ? (await one('SELECT partner_code FROM weddings WHERE id=$1', [wid]))?.partner_code ?? null : null;
+    return { templates: await q('SELECT id, name, category, premium, layout, partner_code FROM templates WHERE published AND (partner_code IS NULL OR partner_code=$1) ORDER BY (partner_code IS NULL), sort', [code]) };
+  });
 
   app.get('/wordings', async (req) => {
     const { language, tone, event_kind } = req.query as any;

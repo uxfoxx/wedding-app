@@ -12,6 +12,7 @@ import { planInfo } from '../lib/entitlements.ts';
 import { enqueuePublish } from '../lib/jobs.ts';
 import { outbox } from '../lib/notify.ts';
 import { HttpError, bad, escapeHtml, oneOf, randomToken, safeEqual, str } from '../lib/util.ts';
+import { creditBalance, passQuote, rewardReferrer } from './growth.ts';
 
 export function reference() {
   // Short, readable reference for bank transfers: WP-7K3Q9M
@@ -28,6 +29,12 @@ export async function markPaid(paymentId: string, opts: { externalId?: string | 
     const p = (await c.query(`UPDATE payments SET status='paid', paid_at=now(), external_id=coalesce($2, external_id), approved_by=coalesce($3, approved_by)
       WHERE id=$1 AND status='pending' RETURNING *`, [paymentId, opts.externalId ?? null, opts.approvedBy ?? null])).rows[0];
     if (!p) return null;
+    if (p.credits_lkr > 0) {
+      // Spend the credits now; if the balance changed meanwhile, the payment still stands (credits can't go below zero).
+      const bal = await creditBalance(p.user_id, c);
+      const use = Math.min(bal, p.credits_lkr);
+      if (use > 0) await c.query(`INSERT INTO credits (user_id, amount_lkr, reason, payment_id) VALUES ($1,$2,'Used on Wedding Pass',$3)`, [p.user_id, -use, p.id]);
+    }
     if (p.product === 'wedding_pass') {
       await c.query(`UPDATE weddings SET plan='pass', paid_at=now() WHERE id=$1`, [p.wedding_id]);
     } else if (p.product === 'design_for_me') {
@@ -36,6 +43,7 @@ export async function markPaid(paymentId: string, opts: { externalId?: string | 
     return p;
   }).then(async (p) => {
     if (p) {
+      await rewardReferrer(p);
       await enqueuePublish(p.wedding_id); // removes the "Made with" footer
       const u = await one('SELECT email, phone FROM users WHERE id=$1', [p.user_id]);
       const text = `Thank you! Payment ${p.reference} of LKR ${p.amount_lkr.toLocaleString('en-LK')} received for ${p.product === 'wedding_pass' ? 'the Wedding Pass' : 'Design it for me'}.`;
@@ -65,14 +73,20 @@ export default async function paymentRoutes(app: FastifyInstance) {
     const product = oneOf(b?.product, 'product', ['wedding_pass', 'design_for_me'] as const, 'wedding_pass');
     const method = oneOf(b?.method, 'method', ['gateway', 'bank_transfer'] as const, 'gateway');
     if (product === 'wedding_pass' && (await planInfo(a.weddingId)).plan === 'pass') throw bad('already_paid');
-    const amount = product === 'wedding_pass' ? pricing.passWebLkr : pricing.designForMeLkr;
-    const p = await one(`INSERT INTO payments (wedding_id, user_id, product, method, amount_lkr, reference) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, reference, amount_lkr`,
-      [a.weddingId, a.user.id, product, method, amount, reference()]);
+    const quote = product === 'wedding_pass' ? await passQuote(a.weddingId, a.user.id)
+      : { list: pricing.designForMeLkr, discount: 0, reason: null, credits: 0, total: pricing.designForMeLkr };
+    const p = await one(`INSERT INTO payments (wedding_id, user_id, product, method, amount_lkr, reference, list_price_lkr, discount_lkr, credits_lkr, discount_reason)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id, reference, amount_lkr`,
+      [a.weddingId, a.user.id, product, method, quote.total, reference(), quote.list, quote.discount, quote.credits, quote.reason]);
+    if (quote.total === 0) {
+      await markPaid(p.id);
+      return { paymentId: p.id, reference: p.reference, amount_lkr: 0, status: 'paid', quote };
+    }
     if (method === 'bank_transfer') {
-      return { paymentId: p.id, reference: p.reference, amount_lkr: p.amount_lkr, status: 'pending', instructions: 'Transfer the amount and use the reference as the description. We unlock the wedding as soon as the payment is confirmed (usually within one working day).' };
+      return { quote, paymentId: p.id, reference: p.reference, amount_lkr: p.amount_lkr, status: 'pending', instructions: 'Transfer the amount and use the reference as the description. We unlock the wedding as soon as the payment is confirmed (usually within one working day).' };
     }
     // Development stands in for the gateway with a local page; production redirects to the provider.
-    return { paymentId: p.id, reference: p.reference, amount_lkr: p.amount_lkr, checkoutUrl: `${config.publicApiUrl}/api/payments/dev-checkout/${p.id}` };
+    return { quote, paymentId: p.id, reference: p.reference, amount_lkr: p.amount_lkr, checkoutUrl: `${config.publicApiUrl}/api/payments/dev-checkout/${p.id}` };
   });
 
   // Gateway webhook (architecture decision 6). Signed with a shared secret.

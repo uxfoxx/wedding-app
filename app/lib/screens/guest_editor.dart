@@ -71,6 +71,68 @@ class _GuestEditorState extends State<GuestEditor> {
     if (r != null && mounted) Navigator.pop(context, true);
   }
 
+  /// A guest replied on WhatsApp instead of the page: paste their message and the app reads it.
+  Future<void> recordReply() async {
+    final s = AppScope.read(context);
+    final text = TextEditingController();
+    String status = 'coming';
+    int headcount = (g['seats'] as int?) ?? 1;
+    String? meal;
+    String? summary;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, set) => AlertDialog(
+          title: const Text('Record their reply'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              TextField(controller: text, maxLines: 3, decoration: const InputDecoration(labelText: 'Paste their message (optional)', hintText: 'api 3 denek enawa, elawalu')),
+              TextButton.icon(
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Read message'),
+                onPressed: () async {
+                  final r = await s.api.post('/weddings/${s.weddingId}/read-reply', {'text': text.text}).catchError((_) => <String, dynamic>{});
+                  set(() {
+                    summary = r['summary'] as String?;
+                    if (r['status'] != null) status = r['status'] as String;
+                    if (r['headcount'] != null && (r['headcount'] as int) > 0) headcount = (r['headcount'] as int).clamp(1, (g['seats'] as int?) ?? 30);
+                    meal = r['meal'] as String?;
+                  });
+                },
+              ),
+              if (summary != null) Text('Looks like: $summary. Check below.', style: const TextStyle(fontStyle: FontStyle.italic)),
+              const SizedBox(height: 8),
+              SegmentedButton<String>(
+                segments: [ButtonSegment(value: 'coming', label: Text(s.t('coming'))), ButtonSegment(value: 'maybe', label: Text(s.t('maybe'))), ButtonSegment(value: 'not_coming', label: Text(s.t('notComing')))],
+                selected: {status},
+                onSelectionChanged: (v) => set(() => status = v.first),
+              ),
+              if (status != 'not_coming') ...[
+                const SizedBox(height: 8),
+                Row(children: [
+                  const Expanded(child: Text('People')),
+                  IconButton(onPressed: headcount > 1 ? () => set(() => headcount--) : null, icon: const Icon(Icons.remove)),
+                  Text('$headcount'),
+                  IconButton(onPressed: headcount < ((g['seats'] as int?) ?? 30) ? () => set(() => headcount++) : null, icon: const Icon(Icons.add)),
+                ]),
+                DropdownButtonFormField<String?>(
+                  initialValue: meal,
+                  decoration: const InputDecoration(labelText: 'Meal'),
+                  items: const [DropdownMenuItem(value: null, child: Text('No preference')), DropdownMenuItem(value: 'vegetarian', child: Text('Vegetarian')), DropdownMenuItem(value: 'vegan', child: Text('Vegan')), DropdownMenuItem(value: 'halal', child: Text('Halal'))],
+                  onChanged: (v) => set(() => meal = v),
+                ),
+              ],
+            ]),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: Text(s.t('cancel'))), FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(s.t('save')))],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final r = await guard(context, () => s.api.put('/weddings/${s.weddingId}/guests/${g['id']}/rsvp', {'status': status, 'headcount': headcount, 'meal': meal, 'note': text.text.trim().isEmpty ? null : text.text.trim()}));
+    if (r != null && mounted) Navigator.pop(context, true);
+  }
+
   Future<void> newLink() async {
     final s = AppScope.read(context);
     final r = await guard(context, () => s.api.post('/weddings/${s.weddingId}/guests/${g['id']}/new-link'));
@@ -88,8 +150,8 @@ class _GuestEditorState extends State<GuestEditor> {
           if (!isNew && g['link'] != null) IconButton(tooltip: s.t('copyLink'), icon: const Icon(Icons.link), onPressed: () => copy(context, g['link'] as String, s.t('copied'))),
           if (!isNew)
             PopupMenuButton<String>(
-              onSelected: (v) => v == 'delete' ? remove() : newLink(),
-              itemBuilder: (_) => [PopupMenuItem(value: 'link', child: Text(s.t('newLink'))), PopupMenuItem(value: 'delete', child: Text(s.t('delete')))],
+              onSelected: (v) => v == 'delete' ? remove() : v == 'reply' ? recordReply() : newLink(),
+              itemBuilder: (_) => [const PopupMenuItem(value: 'reply', child: Text('Record their reply')), PopupMenuItem(value: 'link', child: Text(s.t('newLink'))), PopupMenuItem(value: 'delete', child: Text(s.t('delete')))],
             ),
         ],
       ),

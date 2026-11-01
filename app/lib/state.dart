@@ -12,10 +12,14 @@ class AppState extends ChangeNotifier {
   List<dynamic> weddings = [];
   Map<String, dynamic>? summary; // GET /weddings/:id
   String locale = 'en';
+  Map<String, dynamic>? planner; // GET /planner: {planner, role, studioActive, teamLimit}
+  /// What the person is doing right now: their own wedding, or planner work. Switch from the profile menu.
+  String workspace = 'couple';
   bool ready = false;
 
   /// Invite link opened before sign-in (web panel #join=...); accepted after sign-in.
   String? pendingJoinToken;
+  String? pendingTeamToken;
 
   String? get weddingId => summary?['wedding']?['id'] as String?;
   Map<String, dynamic> get wedding => (summary?['wedding'] as Map<String, dynamic>?) ?? {};
@@ -25,8 +29,11 @@ class AppState extends ChangeNotifier {
   bool get canEditAll => role == 'owner' || role == 'edit_all';
   bool get canEditGuests => canEditAll || role == 'edit_guests';
   bool get isStaff => user?['staff_role'] != null;
+  bool get isPlanner => planner != null;
+  bool get inPlannerWorkspace => isPlanner && workspace == 'planner';
 
-  Future<void> init({String? sessionFromUrl, String? joinFromUrl}) async {
+  Future<void> init({String? sessionFromUrl, String? joinFromUrl, String? teamFromUrl}) async {
+    pendingTeamToken = teamFromUrl;
     final prefs = await SharedPreferences.getInstance();
     locale = prefs.getString('locale') ?? 'en';
     pendingJoinToken = joinFromUrl;
@@ -59,12 +66,54 @@ class AppState extends ChangeNotifier {
       } catch (_) {}
       pendingJoinToken = null;
     }
+    if (pendingTeamToken != null) {
+      try {
+        await api.post('/planner-invites/$pendingTeamToken/accept');
+      } catch (_) {}
+      pendingTeamToken = null;
+    }
+    await loadPlanner();
     await loadWeddings();
     final prefs = await SharedPreferences.getInstance();
+    workspace = prefs.getString('workspace') ?? (isPlanner ? 'planner' : 'couple');
+    if (inPlannerWorkspace) return; // planners land on their dashboard
     final last = prefs.getString('wedding');
     final ids = weddings.map((w) => w['id']).toList();
     final pick = ids.contains(last) ? last : (ids.isNotEmpty ? ids.first as String : null);
     if (pick != null) await openWedding(pick);
+  }
+
+  Future<void> loadPlanner() async {
+    try {
+      planner = await api.get('/planner');
+    } on ApiException catch (e) {
+      if (e.status != 404) rethrow;
+      planner = null;
+    }
+  }
+
+  Future<void> setWorkspace(String w) async {
+    workspace = w;
+    summary = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('workspace', w);
+    if (w == 'couple') {
+      await loadWeddings();
+      final own = weddings.where((x) => x['role'] == 'owner').toList();
+      if (own.isNotEmpty) await openWedding(own.first['id'] as String);
+    }
+    notifyListeners();
+  }
+
+  /// Back from a client wedding to the planner dashboard.
+  void closeWedding() {
+    summary = null;
+    notifyListeners();
+  }
+
+  Future<void> becamePlanner() async {
+    await loadPlanner();
+    await setWorkspace('planner');
   }
 
   Future<void> loadWeddings() async {
@@ -118,6 +167,8 @@ class AppState extends ChangeNotifier {
     api.token = null;
     user = null;
     summary = null;
+    planner = null;
+    workspace = 'couple';
     weddings = [];
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');

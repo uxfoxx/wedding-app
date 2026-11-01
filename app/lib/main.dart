@@ -4,6 +4,8 @@ import 'package:flutter/semantics.dart';
 
 import 'api.dart';
 import 'screens/onboarding.dart';
+import 'screens/planner_home.dart';
+import 'screens/role_choice.dart';
 import 'screens/shell.dart';
 import 'screens/sign_in.dart';
 import 'state.dart';
@@ -15,13 +17,14 @@ void main() {
   if (const bool.fromEnvironment('E2E')) SemanticsBinding.instance.ensureSemantics();
   // Web panel links carry a session (#session=...) after an email sign-in link,
   // or a co-owner invite (#join=...).
-  String? session, join;
+  String? session, join, team;
   if (kIsWeb && Uri.base.fragment.isNotEmpty) {
     final f = Uri.splitQueryString(Uri.base.fragment.replaceFirst(RegExp(r'^/'), ''));
     session = f['session'];
     join = f['join'];
+    team = f['team'];
   }
-  final state = AppState(Api())..init(sessionFromUrl: session, joinFromUrl: join);
+  final state = AppState(Api())..init(sessionFromUrl: session, joinFromUrl: join, teamFromUrl: team);
   runApp(WeddingApp(state: state));
 }
 
@@ -51,7 +54,8 @@ class Root extends StatelessWidget {
     final s = AppScope.of(context);
     if (!s.ready) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (s.user == null) return const SignInScreen();
-    if (s.summary == null) return const OnboardingScreen();
+    if (s.inPlannerWorkspace && s.summary == null) return const PlannerHome();
+    if (s.summary == null) return s.weddings.isEmpty && !s.isPlanner ? const RoleChoiceScreen() : const OnboardingScreen();
     return const Shell();
   }
 }

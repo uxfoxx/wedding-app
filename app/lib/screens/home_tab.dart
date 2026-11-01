@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
+import 'planner_tools.dart';
 
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key, required this.onGo});
@@ -40,6 +41,7 @@ class HomeTab extends StatelessWidget {
             ]),
           ),
         ),
+        if (s.isAdvanced) ReadinessCard(onGo: onGo),
         if (sum['suggestAdvanced'] == true)
           Card(
             child: ListTile(
