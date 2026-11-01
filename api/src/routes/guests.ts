@@ -137,14 +137,14 @@ export default async function guestRoutes(app: FastifyInstance) {
     // Flag rows that match guests already on the list.
     const existing = await q<{ id: string; name: string; phone: string | null }>('SELECT id, name, phone FROM guests WHERE wedding_id=$1', [a.weddingId]);
     const tmp = rows.map((r, i) => ({ id: `new:${i}`, name: r.name, phone: r.phone }));
+    // Flag the later row of each pair: an existing guest always counts as earlier than a new row.
+    const order = (id: string) => (id.startsWith('new:') ? existing.length + Number(id.slice(4)) : -1);
     for (const d of findDuplicates([...existing, ...tmp])) {
-      for (const [x, y] of [[d.a, d.b], [d.b, d.a]]) {
-        if (x.startsWith('new:')) {
-          const r = rows[Number(x.slice(4))];
-          if (!r.flags.includes('possible_duplicate')) r.flags.push('possible_duplicate');
-          r.duplicateOf ??= y.startsWith('new:') ? rows[Number(y.slice(4))].name : existing.find((e) => e.id === y)?.name;
-        }
-      }
+      const [first, later] = order(d.a) < order(d.b) ? [d.a, d.b] : [d.b, d.a];
+      if (!later.startsWith('new:')) continue;
+      const r = rows[Number(later.slice(4))];
+      if (!r.flags.includes('possible_duplicate')) r.flags.push('possible_duplicate');
+      r.duplicateOf ??= first.startsWith('new:') ? rows[Number(first.slice(4))].name : existing.find((e) => e.id === first)?.name;
     }
     const info = await planInfo(a.weddingId);
     return {

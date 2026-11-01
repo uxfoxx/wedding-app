@@ -87,6 +87,7 @@ test('Phase 1 couple flow, end to end', async () => {
   const pv = await call('POST', `/weddings/${W}/guests/import/preview`, couple, { format: 'paste', text: 'Uncle Sam – 2 people, veg / Nimal Silva & wife 0771234567 / Dr. Perera 0771234567' });
   assert.equal(pv.body.rows.length, 3);
   assert.ok(pv.body.rows[2].flags.includes('possible_duplicate'));
+  assert.ok(!pv.body.rows[1].flags.includes('possible_duplicate'), 'only the later row of a pair is flagged');
   const imp = await call('POST', `/weddings/${W}/guests/import`, couple, { source: 'paste', rows: pv.body.rows.slice(0, 2) });
   assert.equal(imp.body.added, 2);
   for (const n of ['Amara', 'Bandula', 'Chathura']) assert.equal((await call('POST', `/weddings/${W}/guests`, couple, { name: n, phone: '+61 412 000 00' + n.length, vip: n === 'Amara' })).status, 200);

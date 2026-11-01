@@ -130,7 +130,7 @@ CREATE TABLE guests (
   source      text NOT NULL DEFAULT 'manual',
   sent_at     timestamptz,               -- handed to WhatsApp/SMS (not proof of delivery)
   opened_at   timestamptz,               -- from JS beacon only, so link-preview crawlers don't count
-  created_at  timestamptz NOT NULL DEFAULT now()
+  created_at  timestamptz NOT NULL DEFAULT clock_timestamp()  -- keeps import order within one transaction
 );
 CREATE INDEX ON guests (wedding_id);
 CREATE INDEX ON guests (wedding_id, phone);
