@@ -7,6 +7,7 @@ import { config } from '../config.ts';
 import { storage } from './storage.ts';
 import { renderGuestPage, type GuestJson, type RenderEvent } from './renderer.ts';
 import { planInfo } from './entitlements.ts';
+import { renderExtraPage } from './extraPages.ts';
 
 export function guestLink(slug: string, token: string) {
   return `${config.guestBaseUrl}/${slug}/#t=${token}`;
@@ -23,6 +24,8 @@ export async function loadRenderInput(weddingId: string, db: Queryable = pool) {
      FROM events WHERE wedding_id=$1 ORDER BY starts_at, sort`, [weddingId], db);
   const info = await planInfo(weddingId, db);
   const fallback = await one('SELECT id, layout FROM templates ORDER BY sort LIMIT 1', [], db);
+  const updates = await q('SELECT body, kind, created_at FROM wedding_updates WHERE wedding_id=$1 ORDER BY created_at DESC LIMIT 10', [weddingId], db);
+  const planner = info.whiteLabel ? await one('SELECT p.business_name AS name, p.logo_url FROM planners p JOIN weddings w ON w.planner_id=p.id WHERE w.id=$1', [weddingId], db) : null;
   return {
     w,
     input: {
@@ -36,13 +39,16 @@ export async function loadRenderInput(weddingId: string, db: Queryable = pool) {
       apiUrl: `${config.publicApiUrl}/api`,
       siteUrl: `${config.guestBaseUrl}/${w.slug}/`,
       signupUrl: config.webPanelUrl,
+      updates: updates.map((u) => ({ ...u, created_at: new Date(u.created_at).toISOString() })),
+      features: { uploads: info.limits.uploads && w.settings?.uploads_enabled !== false, seating: info.limits.seating && !!w.settings?.seating_published },
+      planner,
     },
   };
 }
 
 export async function guestJson(guestId: string, db: Queryable = pool): Promise<{ slug: string; token: string; json: GuestJson } | null> {
   const g = await one(
-    `SELECT g.id, g.name, g.title, g.seats, g.token, w.slug FROM guests g JOIN weddings w ON w.id=g.wedding_id WHERE g.id=$1`, [guestId], db);
+    `SELECT g.id, g.name, g.title, g.seats, g.token, w.slug, w.settings FROM guests g JOIN weddings w ON w.id=g.wedding_id WHERE g.id=$1`, [guestId], db);
   if (!g) return null;
   const evs = await q<{ event_id: string }>('SELECT event_id FROM guest_events WHERE guest_id=$1', [guestId], db);
   const rs = await q('SELECT event_id, status, headcount, meal, dietary, message FROM rsvps WHERE guest_id=$1', [guestId], db);
@@ -54,6 +60,8 @@ export async function guestJson(guestId: string, db: Queryable = pool): Promise<
       seats: g.seats,
       events: evs.map((e) => e.event_id),
       rsvps: Object.fromEntries(rs.map((r) => [r.event_id, { status: r.status, headcount: r.headcount, meal: r.meal, dietary: r.dietary, message: r.message }])),
+      ...(g.settings?.seating_published ? { tables: Object.fromEntries((await q(
+        'SELECT sa.event_id, t.name FROM seat_assignments sa JOIN seating_tables t ON t.id=sa.table_id WHERE sa.guest_id=$1', [guestId], db)).map((r) => [r.event_id, r.name])) } : {}),
     },
   };
 }
@@ -75,6 +83,12 @@ export async function publishWedding(weddingId: string) {
   const { w, input } = await loadRenderInput(weddingId);
   const html = renderGuestPage(input);
   await storage.put(`site/${w.slug}/index.html`, html, 'text/html; charset=utf-8', 'public, max-age=60');
+  // Companion pages share the wedding's design. They exist only with the features that use them.
+  for (const page of ['share', 'wall', 'keepsake', 'seat'] as const) {
+    const on = page === 'seat' ? input.features.seating : input.features.uploads || (page === 'keepsake' && (await planInfo(weddingId)).limits.uploads);
+    if (on) await storage.put(`site/${w.slug}/${page}.html`, renderExtraPage(page, input), 'text/html; charset=utf-8', 'public, max-age=60');
+    else await storage.del(`site/${w.slug}/${page}.html`);
+  }
   const guests = await q<{ id: string; token: string }>('SELECT id, token FROM guests WHERE wedding_id=$1', [weddingId]);
   const keep = new Set<string>();
   for (const g of guests) {

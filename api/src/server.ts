@@ -12,6 +12,7 @@ if (config.env === 'production') {
   }
 }
 mkdirSync(join(config.storageDir, 'site'), { recursive: true });
+mkdirSync(join(config.storageDir, 'media'), { recursive: true });
 await migrate();
 await seed();
 const app = await buildApp();

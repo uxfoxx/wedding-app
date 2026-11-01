@@ -5,7 +5,8 @@ import { weddingAccess } from '../lib/access.ts';
 import { assertCanAddGuests, paywall, planInfo } from '../lib/entitlements.ts';
 import { findDuplicates } from '../lib/duplicates.ts';
 import { parseGuestCsv, parsePastedGuests } from '../lib/guestImport.ts';
-import { eventNames, fill, inviteMessage, kindWords, reminderMessage, type Lang } from '../lib/i18n.ts';
+import { eventNames, fill, inviteMessage, kindWords, reminderMessage, thanksMessage, updateMessage, type Lang } from '../lib/i18n.ts';
+import { config } from '../config.ts';
 import { normalizePhone, waDigits } from '../lib/phone.ts';
 import { guestLink, publishGuest, unpublishGuestToken } from '../lib/publisher.ts';
 import { bad, int, notFound, oneOf, randomToken, str } from '../lib/util.ts';
@@ -73,15 +74,16 @@ async function listGuests(weddingId: string) {
     FROM guests g WHERE g.wedding_id=$1 ORDER BY g.vip DESC, g.created_at`, [weddingId]);
 }
 
-function message(kind: 'invite' | 'reminder', w: any, guest: { name: string; title: string | null; token: string }) {
+function message(kind: 'invite' | 'reminder' | 'update' | 'thanks', w: any, guest: { name: string; title: string | null; token: string }, extra: { update?: string } = {}) {
   const lang = w.language as Lang;
-  const tpl = kind === 'invite' ? inviteMessage[lang] : reminderMessage[lang];
+  const tpl = { invite: inviteMessage, reminder: reminderMessage, update: updateMessage, thanks: thanksMessage }[kind][lang];
   const joiner = lang === 'si' ? ' සහ ' : lang === 'ta' ? ' மற்றும் ' : ' & ';
   return fill(tpl, {
     name: guest.title ? `${guest.title} ${guest.name}` : guest.name,
     couple: `${w.partner1}${joiner}${w.partner2}`,
     kind: kindWords[lang][w.kind] ?? kindWords[lang].wedding,
-    link: guestLink(w.slug, guest.token),
+    link: kind === 'thanks' ? `${config.guestBaseUrl}/${w.slug}/keepsake.html` : guestLink(w.slug, guest.token),
+    update: extra.update ?? '',
   });
 }
 
@@ -244,16 +246,21 @@ export default async function guestRoutes(app: FastifyInstance) {
   // The WhatsApp send queue: one tap opens WhatsApp with the message ready.
   app.get('/weddings/:weddingId/send-queue', async (req) => {
     const a = await weddingAccess(req, 'edit_guests', { write: false });
-    const kind = oneOf((req.query as any).kind, 'kind', ['invite', 'reminder'] as const, 'invite');
+    const kind = oneOf((req.query as any).kind, 'kind', ['invite', 'reminder', 'update', 'thanks'] as const, 'invite');
     const w = await one('SELECT kind, partner1, partner2, slug, language, published_at FROM weddings WHERE id=$1', [a.weddingId]);
     if (!w.published_at) throw bad('publish_first', 'Publish your invitation before sending it.');
+    // Live updates go to guests who said they are coming; thank-yous to guests who came.
+    const latest = kind === 'update' ? await one('SELECT body FROM wedding_updates WHERE wedding_id=$1 ORDER BY created_at DESC LIMIT 1', [a.weddingId]) : null;
+    if (kind === 'update' && !latest) throw bad('post_update_first', 'Post an update first.');
     const rows = kind === 'invite'
       ? await q(`SELECT id, name, title, phone, token, vip FROM guests WHERE wedding_id=$1 AND sent_at IS NULL ORDER BY vip DESC, created_at`, [a.weddingId])
-      : await followUpRows(a.weddingId);
+      : kind === 'reminder' ? await followUpRows(a.weddingId)
+      : await q(`SELECT g.id, g.name, g.title, g.phone, g.token, g.vip FROM guests g WHERE g.wedding_id=$1
+          AND EXISTS (SELECT 1 FROM rsvps r WHERE r.guest_id=g.id AND r.status='coming') ORDER BY g.vip DESC, g.created_at`, [a.weddingId]);
     return {
       kind,
       guests: rows.map((g) => {
-        const text = message(kind, w, g);
+        const text = message(kind, w, g, { update: latest?.body });
         return { id: g.id, name: g.name, phone: g.phone, vip: g.vip, text, whatsapp: waUrl(g.phone, text), sms: g.phone ? `sms:${g.phone}?&body=${encodeURIComponent(text)}` : null, link: guestLink(w.slug, g.token) };
       }),
     };

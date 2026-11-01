@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from './config.ts';
 import { HttpError } from './lib/util.ts';
@@ -11,6 +11,9 @@ import guestRoutes from './routes/guests.ts';
 import publicRoutes from './routes/public.ts';
 import paymentRoutes from './routes/payments.ts';
 import adminRoutes from './routes/admin.ts';
+import plannerRoutes from './routes/planners.ts';
+import planningRoutes from './routes/planning.ts';
+import experienceRoutes from './routes/experience.ts';
 
 // Tiny per-IP, per-route rate limiter (requests per minute) for public and sign-in endpoints.
 function rateLimiter(app: FastifyInstance) {
@@ -28,6 +31,7 @@ function rateLimiter(app: FastifyInstance) {
 }
 
 export async function buildApp(): Promise<FastifyInstance> {
+  for (const d of ['site', 'media']) mkdirSync(join(config.storageDir, d), { recursive: true });
   const app = Fastify({
     logger: config.env === 'test' ? false : { level: 'info' },
     bodyLimit: 2 * 1024 * 1024,
@@ -63,11 +67,16 @@ export async function buildApp(): Promise<FastifyInstance> {
     await api.register(publicRoutes);
     await api.register(paymentRoutes);
     await api.register(adminRoutes);
+    await api.register(plannerRoutes);
+    await api.register(planningRoutes);
+    await api.register(experienceRoutes);
   }, { prefix: '/api' });
 
   // Development: serve published guest pages (stand-in for the CDN) and the Flutter web panel.
   await app.register(fastifyStatic, { root: join(config.storageDir, 'site'), prefix: '/site/', decorateReply: false, cacheControl: false,
     setHeaders: (res) => { res.setHeader('cache-control', 'no-cache'); res.setHeader('x-content-type-options', 'nosniff'); } });
+  await app.register(fastifyStatic, { root: join(config.storageDir, 'media'), prefix: '/media/', decorateReply: false,
+    setHeaders: (res) => { res.setHeader('x-content-type-options', 'nosniff'); res.setHeader('content-security-policy', "default-src 'none'"); } });
   const panel = new URL('../../app/build/web', import.meta.url).pathname;
   if (existsSync(panel)) {
     await app.register(fastifyStatic, { root: panel, prefix: '/panel/', decorateReply: false });

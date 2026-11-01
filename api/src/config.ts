@@ -12,6 +12,8 @@ export const config = {
   // Local folder standing in for object storage + CDN in development.
   storageDir: env.STORAGE_DIR ?? new URL('../../storage', import.meta.url).pathname,
   webPanelUrl: env.WEB_PANEL_URL ?? 'http://localhost:8080/panel',
+  // Public URL of uploaded photos, videos and voice notes (object storage + CDN in production).
+  mediaBaseUrl: env.MEDIA_BASE_URL ?? 'http://localhost:8080/media',
   // Comma-separated emails that get the admin staff role on sign-in.
   adminEmails: (env.ADMIN_EMAILS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   googleClientIds: (env.GOOGLE_CLIENT_IDS ?? '').split(',').filter(Boolean),
@@ -37,4 +39,9 @@ export const pricing = {
   passAccessMonthsAfterLastEvent: 12,
   purgeContactsMonthsAfterLastEvent: 12,
   followUpAfterDays: 7,
+  // Guest uploads (per file, and per wedding in total). Storage is paid per GB.
+  maxPhotoBytes: 12 * 1024 * 1024,
+  maxVideoBytes: 150 * 1024 * 1024,
+  maxVoiceBytes: 6 * 1024 * 1024,
+  weddingStorageMb: Number(env.WEDDING_STORAGE_MB ?? 3000),
 } as const;

@@ -35,6 +35,7 @@ export const guestStrings: Record<Lang, Record<string, string>> = {
     tapToOpen: 'Tap to open',
     madeWith: 'Create your own invitation',
     language: 'Language',
+    updatesTitle: 'Latest from the couple', menuTitle: 'Menu', table: 'Your table', sharePhotos: 'Share photos & wishes', findSeat: 'Find your seat', keepsake: 'Photos & guestbook',
   },
   si: {
     dear: 'ගරු {name},',
@@ -66,6 +67,7 @@ export const guestStrings: Record<Lang, Record<string, string>> = {
     tapToOpen: 'විවෘත කිරීමට තට්ටු කරන්න',
     madeWith: 'ඔබේම ආරාධනාවක් සාදන්න',
     language: 'භාෂාව',
+    updatesTitle: 'යුවළගෙන් නවතම පුවත', menuTitle: 'ආහාර වට්ටෝරුව', table: 'ඔබේ මේසය', sharePhotos: 'ඡායාරූප සහ සුබපැතුම් එවන්න', findSeat: 'ඔබේ ආසනය සොයන්න', keepsake: 'ඡායාරූප සහ සුබපැතුම්',
   },
   ta: {
     dear: 'அன்புள்ள {name},',
@@ -97,6 +99,7 @@ export const guestStrings: Record<Lang, Record<string, string>> = {
     tapToOpen: 'திறக்க தொடவும்',
     madeWith: 'உங்கள் சொந்த அழைப்பை உருவாக்குங்கள்',
     language: 'மொழி',
+    updatesTitle: 'தம்பதியினரின் புதிய தகவல்', menuTitle: 'உணவு பட்டியல்', table: 'உங்கள் மேசை', sharePhotos: 'புகைப்படங்கள் & வாழ்த்துகள் பகிர்க', findSeat: 'உங்கள் இருக்கையைக் காண்க', keepsake: 'புகைப்படங்கள் & வாழ்த்துகள்',
   },
 };
 
@@ -117,6 +120,18 @@ export const reminderMessage: Record<Lang, string> = {
   en: 'Dear {name}, a gentle reminder from {couple}: please let us know if you can join us. It only takes a minute:\n{link}',
   si: 'ගරු {name}, {couple} වෙතින් මතක් කිරීමක්: ඔබ පැමිණෙන්නේදැයි කරුණාකර දන්වන්න:\n{link}',
   ta: 'அன்புள்ள {name}, {couple} அவர்களிடமிருந்து ஒரு நினைவூட்டல்: நீங்கள் வருவீர்களா என்று தெரிவிக்கவும்:\n{link}',
+};
+
+export const updateMessage: Record<Lang, string> = {
+  en: 'Dear {name}, an update from {couple}: {update}\nDetails: {link}',
+  si: 'ගරු {name}, {couple} වෙතින් දැනුම්දීමක්: {update}\nවිස්තර: {link}',
+  ta: 'அன்புள்ள {name}, {couple} அவர்களிடமிருந்து ஒரு அறிவிப்பு: {update}\nவிவரங்கள்: {link}',
+};
+
+export const thanksMessage: Record<Lang, string> = {
+  en: 'Dear {name}, thank you for celebrating with us! Our photos and your messages are here: {link}\nWith love, {couple}',
+  si: 'ගරු {name}, අප සමඟ සතුට බෙදාගත්තාට ස්තූතියි! ඡායාරූප සහ පණිවිඩ මෙතැනින්: {link}\nආදරයෙන්, {couple}',
+  ta: 'அன்புள்ள {name}, எங்களுடன் கொண்டாடியதற்கு நன்றி! புகைப்படங்களும் வாழ்த்துகளும் இங்கே: {link}\nஅன்புடன், {couple}',
 };
 
 export const kindWords: Record<Lang, Record<string, string>> = {

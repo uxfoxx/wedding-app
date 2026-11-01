@@ -26,8 +26,11 @@ export default async function adminRoutes(app: FastifyInstance) {
         (SELECT count(DISTINCT wedding_id) FROM guests WHERE sent_at IS NOT NULL)::int AS weddings_sent,
         (SELECT count(*) FROM weddings WHERE plan='pass')::int AS paid_weddings,
         (SELECT count(*) FROM payments WHERE status='pending' AND method='bank_transfer')::int AS pending_transfers,
-        (SELECT count(*) FROM jobs WHERE done_at IS NULL AND attempts >= 5)::int AS failed_jobs`);
-    return { totals, days, phase1Gate: { weddingsSent: { target: 100, now: totals.weddings_sent }, paid: { target: 20, now: totals.paid_weddings } } };
+        (SELECT count(*) FROM jobs WHERE done_at IS NULL AND attempts >= 5)::int AS failed_jobs,
+        (SELECT count(*) FROM planners WHERE approved_at IS NULL)::int AS pending_planners,
+        (SELECT count(*) FROM uploads WHERE reported_at IS NOT NULL)::int + (SELECT count(*) FROM guestbook_entries WHERE reported_at IS NOT NULL)::int AS open_reports,
+        (SELECT count(*) FROM planners p WHERE (SELECT count(*) FROM weddings w WHERE w.planner_id=p.id) >= 2)::int AS planners_2plus`);
+    return { totals, days, phase1Gate: { weddingsSent: { target: 100, now: totals.weddings_sent }, paid: { target: 20, now: totals.paid_weddings } }, phase2Gate: { planners2plus: { target: 20, now: totals.planners_2plus } } };
   });
 
   app.get('/admin/search', async (req) => {
@@ -187,6 +190,85 @@ export default async function adminRoutes(app: FastifyInstance) {
       [(req.params as any).id, status, b.designer_id ?? null, msg ? JSON.stringify(msg) : null]);
     if (!r.rowCount) throw notFound();
     await audit(s.id, 'design_job.update', (req.params as any).id, { status });
+    return { ok: true };
+  });
+
+
+  // ---- Phase 2: planners, moderation, storage ----
+  app.get('/admin/planners', async (req) => {
+    await requireStaff(req);
+    const status = (req.query as any).status ?? 'pending';
+    return { planners: await q(`SELECT p.*, u.email, u.phone AS owner_phone,
+        (SELECT count(*)::int FROM weddings w WHERE w.planner_id=p.id) AS weddings
+      FROM planners p JOIN users u ON u.id=p.owner_id
+      WHERE ($1='all' OR ($1='pending' AND p.approved_at IS NULL) OR ($1='approved' AND p.approved_at IS NOT NULL))
+      ORDER BY p.created_at DESC LIMIT 200`, [status]) };
+  });
+
+  app.post('/admin/planners/:id/approve', async (req) => {
+    const s = await requireStaff(req, ['admin']);
+    const r = await one(`UPDATE planners SET approved_at=now(), approved_by=$2 WHERE id=$1 AND approved_at IS NULL RETURNING id, business_name`, [(req.params as any).id, s.id]);
+    if (!r) throw bad('not_pending');
+    await audit(s.id, 'planner.approve', r.id, { business_name: r.business_name });
+    return { ok: true };
+  });
+
+  // Planner billing: record a Studio subscription period (paid by card/transfer outside the app stores).
+  app.post('/admin/planners/:id/studio', async (req) => {
+    const s = await requireStaff(req, ['admin']);
+    const b = req.body as any;
+    const plan = oneOf(b.plan, 'plan', ['free', 'studio10', 'studio_unlimited'] as const);
+    const months = plan === 'free' ? 0 : Math.max(1, Math.min(12, Number(b.months) || 1));
+    const r = await one(`UPDATE planners SET plan=$2, studio_until = CASE WHEN $3 = 0 THEN NULL
+        ELSE greatest(coalesce(studio_until, now()), now()) + make_interval(months => $3) END WHERE id=$1 RETURNING id, plan, studio_until`,
+      [(req.params as any).id, plan, months]);
+    if (!r) throw notFound();
+    await audit(s.id, 'planner.studio', r.id, { plan, months, reference: b.reference ?? null });
+    return { planner: r };
+  });
+
+  // Reported guest photos and guestbook messages across all weddings.
+  app.get('/admin/reports', async (req) => {
+    await requireStaff(req);
+    const uploads = await q(`SELECT u.id, u.wedding_id, u.kind, u.path, u.uploader, u.reported_at, w.partner1, w.partner2 FROM uploads u JOIN weddings w ON w.id=u.wedding_id
+      WHERE u.reported_at IS NOT NULL ORDER BY u.reported_at DESC LIMIT 200`);
+    const entries = await q(`SELECT e.id, e.wedding_id, e.name, e.message, e.reported_at, w.partner1, w.partner2 FROM guestbook_entries e JOIN weddings w ON w.id=e.wedding_id
+      WHERE e.reported_at IS NOT NULL ORDER BY e.reported_at DESC LIMIT 200`);
+    const { mediaUrl } = await import('../lib/storage.ts');
+    return { uploads: uploads.map((u) => ({ ...u, url: mediaUrl(u.path) })), guestbook: entries };
+  });
+
+  app.post('/admin/reports/resolve', async (req) => {
+    const s = await requireStaff(req);
+    const b = req.body as any;
+    const kind = oneOf(b.kind, 'kind', ['upload', 'guestbook'] as const);
+    const action = oneOf(b.action, 'action', ['restore', 'remove'] as const);
+    if (kind === 'upload') {
+      if (action === 'remove') {
+        const u = await one(`UPDATE uploads SET status='hidden', reported_at=NULL WHERE id=$1 RETURNING path`, [b.id]);
+        if (u) { const { storage } = await import('../lib/storage.ts'); await storage.del(u.path); }
+      } else await pool.query(`UPDATE uploads SET status='approved', reported_at=NULL WHERE id=$1`, [b.id]);
+    } else {
+      await pool.query(`UPDATE guestbook_entries SET status=$2, reported_at=NULL WHERE id=$1`, [b.id, action === 'remove' ? 'hidden' : 'visible']);
+    }
+    await audit(s.id, `report.${action}`, String(b.id), { kind });
+    return { ok: true };
+  });
+
+  // Storage per wedding: usage and limit.
+  app.get('/admin/storage', async (req) => {
+    await requireStaff(req);
+    return { weddings: await q(`SELECT w.id, w.partner1, w.partner2, coalesce((w.settings->>'storage_limit_mb')::int, $1) AS limit_mb,
+        round(coalesce(sum(u.size_bytes),0) / 1048576.0)::int AS used_mb, count(u.*)::int AS files
+      FROM weddings w JOIN uploads u ON u.wedding_id=w.id AND u.status <> 'hidden' GROUP BY w.id ORDER BY used_mb DESC LIMIT 200`, [pricing.weddingStorageMb]) };
+  });
+
+  app.post('/admin/weddings/:id/storage-limit', async (req) => {
+    const s = await requireStaff(req, ['admin']);
+    const mb = Number((req.body as any)?.limit_mb);
+    if (!Number.isInteger(mb) || mb < 100 || mb > 100000) throw bad('invalid_input', 'limit_mb must be 100–100000');
+    await pool.query(`UPDATE weddings SET settings = settings || jsonb_build_object('storage_limit_mb', $2::int) WHERE id=$1`, [(req.params as any).id, mb]);
+    await audit(s.id, 'wedding.storage_limit', (req.params as any).id, { mb });
     return { ok: true };
   });
 

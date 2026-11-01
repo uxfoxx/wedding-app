@@ -20,6 +20,9 @@ export interface RenderInput {
     slug: string; kind: string; partner1: string; partner2: string; language: Lang;
     invitation: Record<string, any>; hasOpenLink: boolean;
   };
+  updates?: { body: string; kind: string; created_at: string }[];
+  features?: { uploads: boolean; seating: boolean };
+  planner?: { name: string; logo_url: string | null } | null;   // white-label (Studio)
   template: { id: string; layout: any };
   events: RenderEvent[];
   showBranding: boolean;
@@ -34,6 +37,7 @@ export interface GuestJson {
   seats: number;
   events: string[];          // event ids this guest is invited to
   rsvps: Record<string, { status: string; headcount: number; meal: string | null; dietary: string | null; message: string | null }>;
+  tables?: Record<string, string>;   // event id -> table name, once seating is published
 }
 
 const FONT_LINKS: Record<string, string> = {
@@ -104,6 +108,9 @@ export function renderGuestPage(input: RenderInput): string {
     music: inv.music_url ?? null,
     preview: input.preview?.guest ?? null,
     meals: inv.meal_options !== false,
+    menu: Array.isArray(inv.menu) ? inv.menu : [],
+    updates: (input.updates ?? []).slice(0, 10),
+    features: input.features ?? { uploads: false, seating: false },
   };
 
   const ornament = ornamentSvg(L.ornament, p.accent);
@@ -195,11 +202,15 @@ ${L.animation !== 'none' ? `<div id="cover" class="${escapeHtml(L.animation)}" r
     <div class="row"><button class="btn primary" data-s="openContinue">${escapeHtml(s.openContinue)}</button></div></form>
     <p id="openErr" class="notice" hidden></p>
   </div>
+  <section id="updates" aria-live="polite"></section>
   <div id="invalid" class="notice" hidden data-s="invalid">${escapeHtml(s.invalid)}</div>
   <section id="events" aria-label="Events"></section>
   ${photos.length ? `<section class="card"><div class="gal">${photos.map((u) => `<img src="${escapeHtml(u)}" alt="" loading="lazy" decoding="async">`).join('')}</div></section>` : ''}
   <section id="rsvp" class="card" hidden></section>
-  ${showBranding ? `<footer><a href="${escapeHtml(input.signupUrl)}" data-s="madeWith">${escapeHtml(s.madeWith)}</a></footer>` : ''}
+  <section id="menu" class="card" hidden></section>
+  <nav id="more" class="row" style="justify-content:center"></nav>
+  ${input.planner ? `<footer>${input.planner.logo_url ? `<img src="${escapeHtml(input.planner.logo_url)}" alt="" style="height:40px;display:block;margin:0 auto 6px">` : ''}${escapeHtml(input.planner.name)}</footer>` : ''}
+  ${showBranding && !input.planner ? `<footer><a href="${escapeHtml(input.signupUrl)}" data-s="madeWith">${escapeHtml(s.madeWith)}</a></footer>` : ''}
 </main>
 ${inv.music_url ? `<button id="music" aria-label="Music" hidden>♪</button><audio id="audio" src="${escapeHtml(inv.music_url)}" loop preload="none"></audio>` : ''}
 <script id="data" type="application/json">${jsonForScript(pageData)}</script>
@@ -236,6 +247,7 @@ function renderEvents(){var h='';myEvents().forEach(function(e){
  (e.nekath?'<div class="muted">'+esc(e.nekath)+'</div>':'')+
  (e.venue?'<div><b>'+esc(e.venue)+'</b>'+(e.address?'<br><span class="muted">'+esc(e.address)+'</span>':'')+'</div>':'')+
  (e.dress_code?'<div><span class="muted">'+esc(t('dressCode'))+':</span> '+esc(e.dress_code)+'</div>':'')+
+ (G&&G.tables&&G.tables[e.id]?'<p class="notice"><b>'+esc(t('table'))+': '+esc(G.tables[e.id])+'</b></p>':'')+
  (e.programme&&e.programme.length?'<h4>'+esc(t('programme'))+'</h4><ul class="prog">'+e.programme.map(function(p){return '<li><b>'+esc(p.time)+'</b><span>'+esc(p.item)+'</span></li>'}).join('')+'</ul>':'')+
  '<div class="row">'+(e.venue||e.address||e.maps_url?'<a class="btn" target="_blank" rel="noopener" href="'+esc(maps(e))+'">'+esc(t('directions'))+'</a>':'')+
  '<a class="btn" download="invitation.ics" href="'+ics(e)+'">'+esc(t('calendar'))+'</a></div></article>'});
@@ -277,7 +289,12 @@ function renderRsvp(sent){var box=$('rsvp');if(!G){box.hidden=true;return}box.hi
   $('send').disabled=true;
   fetch(D.api+'/public/rsvp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){G=j.guest;draft={};renderRsvp(true)}).catch(function(){var e=$('rerr');e.textContent=t('error');e.hidden=false;$('send').disabled=false})}}
 
-function renderAll(){applyStatic();if(G){var d=$('dear');d.textContent=t('dear',{name:G.name});d.hidden=false}renderEvents();countdown();renderRsvp(false)}
+function renderExtras(){
+ var u=$('updates');u.innerHTML=D.updates.length?'<div class="card"><h2>'+esc(t('updatesTitle'))+'</h2>'+D.updates.map(function(x){return '<p class="notice"><b>'+esc(new Date(x.created_at).toLocaleString(lang==='si'?'si-LK':lang==='ta'?'ta-LK':'en-GB',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit',timeZone:'Asia/Colombo'}))+'</b><br>'+esc(x.body)+'</p>'}).join('')+'</div>':'';
+ var m=$('menu');if(D.menu.length){m.hidden=false;var h='<h2>'+esc(t('menuTitle'))+'</h2>',c=null;D.menu.forEach(function(i){if(i.course&&i.course!==c){c=i.course;h+='<h3>'+esc(c)+'</h3>'}h+='<p><b>'+esc(i.name)+'</b>'+(i.diet&&i.diet.length?' <span class="muted">('+esc(i.diet.join(', '))+')</span>':'')+(i.note?'<br>'+esc(i.note):'')+(i.allergens&&i.allergens.length?'<br><span class="muted">Contains: '+esc(i.allergens.join(', '))+'</span>':'')+'</p>'});m.innerHTML=h}
+ var n=$('more'),l='';if(D.features.uploads)l+='<a class="btn" href="share.html'+(token&&token!=='preview'?'#t='+encodeURIComponent(token):'')+'">'+esc(t('sharePhotos'))+'</a>';
+ if(D.features.seating&&!(G&&G.tables))l+='<a class="btn" href="seat.html">'+esc(t('findSeat'))+'</a>';n.innerHTML=l}
+function renderAll(){applyStatic();renderExtras();if(G){var d=$('dear');d.textContent=t('dear',{name:G.name});d.hidden=false}renderEvents();countdown();renderRsvp(false)}
 
 document.querySelectorAll('.lang button').forEach(function(b){b.onclick=function(){lang=b.getAttribute('data-lang');S=D.strings[lang];try{localStorage.setItem('lang:'+D.slug,lang)}catch(e){}renderAll()}});
 
