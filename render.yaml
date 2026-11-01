@@ -1,0 +1,42 @@
+# Render blueprint: the API and its PostgreSQL database.
+# Render → New → Blueprint → pick this repository. Fill the "sync: false" values in the dashboard.
+services:
+  - type: web
+    name: wedding-api
+    runtime: docker
+    rootDir: api
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase: { name: wedding-db, property: connectionString }
+      - key: PUBLIC_API_URL          # this service's URL, e.g. https://wedding-api.onrender.com
+        sync: false
+      - key: WEB_PANEL_URL           # the Netlify site, e.g. https://your-site.netlify.app
+        sync: false
+      - key: GUEST_BASE_URL          # public bucket URL + /site, e.g. https://media.example.lk/site
+        sync: false
+      - key: MEDIA_BASE_URL          # public bucket URL + /media
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT             # Cloudflare R2: https://<account-id>.r2.cloudflarestorage.com
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: GATEWAY_SECRET
+        generateValue: true
+      - key: PREVIEW_SECRET
+        generateValue: true
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: EXPOSE_DEV_CODES        # set to true only until an email provider is connected
+        value: "false"
+databases:
+  - name: wedding-db
+    plan: basic-256mb
+    postgresMajorVersion: "16"

@@ -1,0 +1,29 @@
+# Netlify hosts the web panel (Flutter web). The API runs separately (see render.yaml / docs/DEPLOY.md).
+# Set API_URL in Netlify → Site configuration → Environment variables (e.g. https://wedding-api.onrender.com).
+[build]
+  base = "app"
+  publish = "build/web"
+  command = """
+    set -e
+    if [ ! -x "$HOME/flutter/bin/flutter" ]; then git clone --depth 1 -b 3.47.9 https://github.com/flutter/flutter.git "$HOME/flutter"; fi
+    export PATH="$HOME/flutter/bin:$PATH"
+    flutter config --no-analytics --enable-web
+    flutter pub get
+    flutter build web --release --dart-define=API_URL="$API_URL"
+  """
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -36,6 +36,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'kind': kind, 'mode': mode, 'wedding_type': type, 'language': s.locale,
           'partner1': p1.text.trim(), 'partner2': p2.text.trim(),
           'event': {'starts_at': slToIso(date!, time), 'venue': venue.text.trim(), 'address': address.text.trim()},
+          'code': ?(s.deepLink['ref'] ?? s.deepLink['code']),
+          'from_slug': ?s.deepLink['from'],
         }));
     if (r != null) {
       await s.createdWedding(r);

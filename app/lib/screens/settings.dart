@@ -112,6 +112,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           if (s.role == 'owner') OutlinedButton.icon(onPressed: inviteHelper, icon: const Icon(Icons.group_add_outlined), label: Text(s.t('inviteHelper'))),
           const Divider(height: 40),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.card_giftcard),
+            title: const Text('Invite friends'),
+            subtitle: const Text('They get a discount; you get credit towards your pass'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReferralScreen())),
+          ),
+          if (s.role == 'owner' && s.wedding['published_at'] != null)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Share our wedding in "Real weddings"'),
+              subtitle: const Text('Your invitation design and the vendors you booked, shown to other couples after our team approves it.'),
+              value: (s.wedding['showcase'] ?? 'off') != 'off',
+              onChanged: (v) async {
+                await guard(context, () => s.api.post('/weddings/${s.weddingId}/showcase', {'share': v}));
+                await s.refresh();
+              },
+            ),
+          const Divider(height: 40),
           ListTile(contentPadding: EdgeInsets.zero, title: Text(s.user?['email'] as String? ?? s.user?['phone'] as String? ?? '')),
           OutlinedButton(onPressed: () async {
             await s.signOut();
@@ -153,6 +173,49 @@ class AccountScreen extends StatelessWidget {
           child: Text(s.t('signOut')),
         ),
       ]),
+    );
+  }
+}
+
+
+class ReferralScreen extends StatefulWidget {
+  const ReferralScreen({super.key});
+  @override
+  State<ReferralScreen> createState() => _ReferralScreenState();
+}
+
+class _ReferralScreenState extends State<ReferralScreen> {
+  Map<String, dynamic>? r;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final v = await guard(context, () => AppScope.read(context).api.get('/me/referral'));
+      if (v != null && mounted) setState(() => r = v);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final th = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Invite friends')),
+      body: r == null
+          ? const Center(child: CircularProgressIndicator())
+          : PageBody(children: [
+              Text('Friends get LKR ${r!['offer']['friend_discount_lkr']} off. You get LKR ${r!['offer']['your_credit_lkr']} credit when they buy the Wedding Pass.', style: th.textTheme.titleMedium),
+              const SizedBox(height: 16),
+              Card(child: ListTile(title: Text(r!['code'] as String, style: th.textTheme.headlineSmall?.copyWith(letterSpacing: 4)), subtitle: const Text('Your code'), trailing: IconButton(icon: const Icon(Icons.copy), onPressed: () => copy(context, r!['code'] as String, 'Copied')))),
+              const SizedBox(height: 8),
+              FilledButton.icon(onPressed: () => openUrl('https://wa.me/?text=${Uri.encodeComponent(r!['message'] as String)}'), icon: const Icon(Icons.chat), label: const Text('Share on WhatsApp')),
+              const SizedBox(height: 20),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                SizedBox(width: 170, child: StatTile('Friends joined', r!['referred'])),
+                SizedBox(width: 170, child: StatTile('Bought the pass', r!['referred_paid'])),
+                SizedBox(width: 170, child: StatTile('Your credit', 'LKR ${r!['credits_lkr']}')),
+              ]),
+            ]),
     );
   }
 }

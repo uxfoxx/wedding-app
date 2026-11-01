@@ -13,6 +13,10 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic>? summary; // GET /weddings/:id
   String locale = 'en';
   Map<String, dynamic>? planner; // GET /planner: {planner, role, studioActive, teamLimit}
+  Map<String, dynamic>? vendor;  // GET /vendor: {vendor, media, packages}
+  /// Links opened from the web: a referral/partner code, the guest page a couple came from,
+  /// a vendor profile to open, or a review request.
+  Map<String, String> deepLink = {};
   /// What the person is doing right now: their own wedding, or planner work. Switch from the profile menu.
   String workspace = 'couple';
   bool ready = false;
@@ -31,6 +35,8 @@ class AppState extends ChangeNotifier {
   bool get isStaff => user?['staff_role'] != null;
   bool get isPlanner => planner != null;
   bool get inPlannerWorkspace => isPlanner && workspace == 'planner';
+  bool get isVendor => vendor != null;
+  bool get inVendorWorkspace => isVendor && workspace == 'vendor';
 
   Future<void> init({String? sessionFromUrl, String? joinFromUrl, String? teamFromUrl}) async {
     pendingTeamToken = teamFromUrl;
@@ -73,10 +79,11 @@ class AppState extends ChangeNotifier {
       pendingTeamToken = null;
     }
     await loadPlanner();
+    await loadVendor();
     await loadWeddings();
     final prefs = await SharedPreferences.getInstance();
-    workspace = prefs.getString('workspace') ?? (isPlanner ? 'planner' : 'couple');
-    if (inPlannerWorkspace) return; // planners land on their dashboard
+    workspace = prefs.getString('workspace') ?? (isPlanner ? 'planner' : isVendor ? 'vendor' : 'couple');
+    if (inPlannerWorkspace || inVendorWorkspace) return; // planners and vendors land on their own home
     final last = prefs.getString('wedding');
     final ids = weddings.map((w) => w['id']).toList();
     final pick = ids.contains(last) ? last : (ids.isNotEmpty ? ids.first as String : null);
@@ -90,6 +97,20 @@ class AppState extends ChangeNotifier {
       if (e.status != 404) rethrow;
       planner = null;
     }
+  }
+
+  Future<void> loadVendor() async {
+    try {
+      vendor = await api.get('/vendor');
+    } on ApiException catch (e) {
+      if (e.status != 404) rethrow;
+      vendor = null;
+    }
+  }
+
+  Future<void> becameVendor() async {
+    await loadVendor();
+    await setWorkspace('vendor');
   }
 
   Future<void> setWorkspace(String w) async {
@@ -133,6 +154,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Rebuild listeners after changing nested data in place (e.g. the vendor profile).
+  void touch() => notifyListeners();
+
   void setSummary(Map<String, dynamic> s) {
     summary = s;
     notifyListeners();
@@ -168,6 +192,7 @@ class AppState extends ChangeNotifier {
     user = null;
     summary = null;
     planner = null;
+    vendor = null;
     workspace = 'couple';
     weddings = [];
     final prefs = await SharedPreferences.getInstance();

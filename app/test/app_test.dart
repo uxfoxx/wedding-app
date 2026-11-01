@@ -97,6 +97,13 @@ void main() {
     await tester.tap(find.byKey(const Key('verify')));
     await tester.pumpAndSettle();
 
+    // New accounts choose a role first: couple, planner or vendor.
+    expect(find.text('Welcome!'), findsOneWidget);
+    expect(find.byKey(const Key('rolePlanner')), findsOneWidget);
+    expect(find.byKey(const Key('roleVendor')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('roleCouple')));
+    await tester.pumpAndSettle();
+
     // What are you planning → Easy Mode → names and date.
     expect(find.text('What are you planning?'), findsOneWidget);
     await tester.tap(find.text('Wedding'));

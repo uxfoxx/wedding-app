@@ -1,6 +1,6 @@
-# Phase 1 status
+# Build status: Phases 1, 2 and 3
 
-Checked against "Phase 1 — Launch: the couple app" in the feature document.
+Checked against the feature document. Phase 1 detail first, then Phases 2 and 3.
 ✅ built and tested · 🟡 built, needs a provider account or more work · ⬜ not started
 
 ## Accounts and wedding setup
@@ -65,6 +65,57 @@ Checked against "Phase 1 — Launch: the couple app" in the feature document.
 - Flutter: analyzer clean; widget test of sign-in → first run → Easy Mode home
 - Browser: web panel driven through sign-in, wedding setup, design, wording, publish, paste import, send queue; guest page opened, RSVP sent in Sinhala, dashboard updated
 - Not verified here: iOS and Android builds (this machine has no Android SDK or Xcode)
+
+## Phase 2: planners and the guest experience
+
+- ✅ Planner login and business profile; admin approval (one wedding allowed before approval)
+- ✅ Dashboard of client weddings: date, days to go, RSVP progress, open/overdue tasks, team; archived weddings hidden
+- ✅ Create a wedding for a client; invite the couple with chosen permissions; hand over ownership (planner keeps edit access)
+- ✅ Who pays: planner pays at checkout, or shares the checkout with the couple
+- ✅ Team: coordinators see only assigned weddings; team limits 1 / 3 / unlimited (free / paid / Studio)
+- ✅ Tasks with due dates and owners, across all client weddings
+- ✅ Reusable templates: save a checklist, run sheet or budget from one wedding, apply to another
+- ✅ Client notes and contact (planner team only); branded printable reports (guest list, seating, run sheet, QR board)
+- ✅ Studio plan: 10 or unlimited new weddings a month; covers weddings only while the subscription is paid (no resale); white-label logo on guest pages and reports
+- ✅ Seating: round, long and head tables; suggested plan (families together, conflicts apart, elders and VIPs at the front, confirmed headcounts, capacity); tap-to-seat on phones, drag-and-drop in the web panel
+- ✅ Find your seat on each guest's invitation, plus a seat-finder page and printable QR board for the entrance
+- ✅ Live updates on every guest page, plus a WhatsApp send queue to confirmed guests
+- ✅ Digital menu with allergens and diet labels
+- ✅ Guest photo/video upload by QR (photos shrunk on the phone, direct to storage), couple approval before the wall, report button
+- ✅ Live photo wall page for the reception screen; guestbook with voice notes; song requests for the DJ
+- ✅ Keepsake page (album + guestbook) and thank-you message queue
+- ✅ Budget (planned, agreed, paid, due; payment reminders), suggested checklist by months before (Buddhist, Hindu, Christian, Muslim, civil items), run sheet, readiness score with the next three steps
+- ✅ RSVP message reading: paste a WhatsApp reply in English, Sinhala, Tamil or Singlish and the app suggests "2 coming, vegetarian"
+- ✅ Admin: approve planners, Studio billing periods, reported photos and messages, storage per wedding
+- 🟡 Push notifications for task reminders: tasks show overdue in the app; push needs Firebase/APNs keys
+- 🟡 Phase 2 gate tracked in the admin stats (planners with 2+ weddings)
+
+## Phase 3: vendor marketplace and growth
+
+- ✅ Vendor login and business profile: category, district, service areas, languages, years, description
+- ✅ Portfolio uploads (direct to storage), packages with starting prices and negotiable flag, availability calendar (booked dates hide the vendor)
+- ✅ Enquiry inbox with wedding date, location, guest count, budget (only if the couple shared it); reply in the app or WhatsApp; quoted / booked / declined
+- ✅ Stats: profile views, enquiries, reply time, bookings, shortlists; ask a couple for a review after the wedding
+- ✅ Categories at launch: photographers, venues, decorators, caterers, makeup, bridal, DJs/bands, planners (more ready to switch on)
+- ✅ Couples and planners: browse by category, district, price, language and date; "Suggested for your wedding" (district, free on date, near budget, rating, reply time)
+- ✅ Shortlist, compare up to three, one enquiry to several vendors, track contacted → quoted → booked / rejected
+- ✅ Booked vendors appear in the budget and run sheet automatically
+- ✅ Planners keep preferred vendors
+- ✅ Trust: team checks (phone, registration/NIC, original portfolio) before approval; verified reviews only from real weddings that contacted the vendor, after the date; public replies; complaints go to the team and three from real weddings hide the vendor pending review
+- ✅ Featured, verified and checked are always labelled; featured slots per category
+- ✅ Public vendor profile pages for social media
+- ✅ Growth: "Create your own invitation" link with attribution, referrals (friend discount + credit), partner QR codes with discounts and co-branded templates, "Real weddings" showcase with permission and approval
+- 🟡 WhatsApp Business automatic reminders: built and off by default (needs Meta approval, a template and a token)
+- 🟡 Vendor money (featured, verified badge): set by admin after payment; self-serve checkout for vendors not built
+- ⬜ Out of scope by design: booking payments, deposits, commission
+
+## Verified (all phases)
+
+- API: 14 test suites/cases against PostgreSQL, including end-to-end flows for each phase
+- Flutter: analyzer clean, widget tests pass, web build succeeds
+- Browser: couple flow (Phase 1), planner flow (dashboard → client wedding → Plan → Guest experience) and vendor flow (setup → inbox → profile) driven in Chromium against the real API
+- Production mode checked: no dev codes, test checkout disabled, warning without object storage
+- Not verified here: iOS/Android builds (no Xcode or Android SDK on this machine), Docker image build (no Docker daemon)
 
 ## Decisions needed from you
 1. LKR payment gateway (for example PayHere) and bank account for transfers

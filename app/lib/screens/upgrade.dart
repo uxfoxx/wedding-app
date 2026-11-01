@@ -43,10 +43,14 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     super.dispose();
   }
 
+  Map<String, dynamic>? quote;
+  final code = TextEditingController();
+
   Future<void> load() async {
     final s = AppScope.read(context);
     final r = await guard(context, () => s.api.get('/weddings/${s.weddingId}/billing'));
-    if (r != null && mounted) setState(() => billing = r);
+    final qt = await s.api.get('/weddings/${s.weddingId}/quote').catchError((_) => <String, dynamic>{});
+    if (r != null && mounted) setState(() { billing = r; quote = qt.isEmpty ? null : qt; });
   }
 
   Future<void> onPurchases(List<PurchaseDetails> list) async {
@@ -132,7 +136,31 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
             if (useStore)
               FilledButton(onPressed: busy ? null : buyInStore, child: Text(product != null ? 'Buy for ${product!.price}' : 'Buy for LKR ${prices!['passAppLkr']}'))
             else ...[
-              FilledButton(key: const Key('payCard'), onPressed: busy ? null : () => checkout('gateway'), child: Text('Pay by card: LKR ${prices!['passWebLkr']}')),
+              if (quote != null && ((quote!['discount'] as int) > 0 || (quote!['credits'] as int) > 0))
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Price: LKR ${quote!['list']}'),
+                      if ((quote!['discount'] as int) > 0) Text('${quote!['reason']}: − LKR ${quote!['discount']}'),
+                      if ((quote!['credits'] as int) > 0) Text('Your credit: − LKR ${quote!['credits']}'),
+                      Text('You pay: LKR ${quote!['total']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ]),
+                  ),
+                ),
+              if (s.role == 'owner')
+                Row(children: [
+                  Expanded(child: TextField(controller: code, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Friend or partner code', isDense: true))),
+                  TextButton(
+                    onPressed: () async {
+                      final r = await guard(context, () => s.api.post('/weddings/${s.weddingId}/code', {'code': code.text.trim()}));
+                      if (r != null) await load();
+                    },
+                    child: const Text('Apply'),
+                  ),
+                ]),
+              const SizedBox(height: 8),
+              FilledButton(key: const Key('payCard'), onPressed: busy ? null : () => checkout('gateway'), child: Text('Pay by card: LKR ${quote?['total'] ?? prices!['passWebLkr']}')),
               const SizedBox(height: 8),
               OutlinedButton(onPressed: busy ? null : () => checkout('bank_transfer'), child: const Text('Pay by bank transfer')),
               if (bankTransfer != null)

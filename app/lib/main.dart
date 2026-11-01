@@ -6,6 +6,7 @@ import 'api.dart';
 import 'screens/onboarding.dart';
 import 'screens/planner_home.dart';
 import 'screens/role_choice.dart';
+import 'screens/vendor_home.dart';
 import 'screens/shell.dart';
 import 'screens/sign_in.dart';
 import 'state.dart';
@@ -18,13 +19,17 @@ void main() {
   // Web panel links carry a session (#session=...) after an email sign-in link,
   // or a co-owner invite (#join=...).
   String? session, join, team;
+  var deep = <String, String>{};
   if (kIsWeb && Uri.base.fragment.isNotEmpty) {
     final f = Uri.splitQueryString(Uri.base.fragment.replaceFirst(RegExp(r'^/'), ''));
     session = f['session'];
     join = f['join'];
     team = f['team'];
+    deep = {for (final k in ['ref', 'code', 'from', 'vendor', 'review', 'wedding']) if (f[k] != null) k: f[k]!};
   }
-  final state = AppState(Api())..init(sessionFromUrl: session, joinFromUrl: join, teamFromUrl: team);
+  final state = AppState(Api())
+    ..deepLink = deep
+    ..init(sessionFromUrl: session, joinFromUrl: join, teamFromUrl: team);
   runApp(WeddingApp(state: state));
 }
 
@@ -55,7 +60,8 @@ class Root extends StatelessWidget {
     if (!s.ready) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (s.user == null) return const SignInScreen();
     if (s.inPlannerWorkspace && s.summary == null) return const PlannerHome();
-    if (s.summary == null) return s.weddings.isEmpty && !s.isPlanner ? const RoleChoiceScreen() : const OnboardingScreen();
+    if (s.inVendorWorkspace) return const VendorHome();
+    if (s.summary == null) return s.weddings.isEmpty && !s.isPlanner && !s.isVendor ? const RoleChoiceScreen() : const OnboardingScreen();
     return const Shell();
   }
 }

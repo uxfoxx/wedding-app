@@ -5,6 +5,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from './config.ts';
 import { HttpError } from './lib/util.ts';
+import { usingObjectStorage } from './lib/storage.ts';
 import authRoutes from './routes/auth.ts';
 import weddingRoutes from './routes/weddings.ts';
 import guestRoutes from './routes/guests.ts';
@@ -63,7 +64,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(async (api) => {
     rateLimiter(api);
     // Development stand-in for object storage accepts raw file bytes (production uploads go to R2/S3).
-    if (config.env !== 'production') {
+    if (!usingObjectStorage) {
       api.addContentTypeParser(/^(image|video|audio)\//, { parseAs: 'buffer', bodyLimit: 150 * 1024 * 1024 }, (_req, body, done) => done(null, body));
     }
     api.get('/health', async () => ({ ok: true }));

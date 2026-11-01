@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../ui.dart';
 import 'budget.dart';
 import 'experience.dart';
+import 'marketplace.dart';
 import 'planner_tools.dart';
 import 'seating.dart';
 import 'upgrade.dart';
@@ -38,6 +39,7 @@ class PlanTab extends StatelessWidget {
       tile(Icons.table_restaurant_outlined, 'Seating', 'Tables, suggested plan, Find your seat', const SeatingScreen(), paid: true),
       tile(Icons.celebration_outlined, 'Guest experience', 'Live updates, menu, photos, guestbook, songs', const ExperienceScreen()),
       tile(Icons.schedule_outlined, 'Run sheet', 'Wedding-day timeline and who does what', const RunSheetScreen(), paid: true),
+      tile(Icons.storefront_outlined, 'Vendors', 'Photographers, venues, decorators: suggested for your date and budget', const VendorsScreen()),
       const SizedBox(height: 8),
       Text('Planning', style: th.textTheme.titleMedium),
       tile(Icons.checklist, 'Checklist', 'Suggested tasks by months before the wedding', const TasksScreen(kind: 'checklist'), paid: true),

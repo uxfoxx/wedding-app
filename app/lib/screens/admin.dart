@@ -84,6 +84,17 @@ class _AdminScreenState extends State<AdminScreen> {
                 ]),
               ),
               const Divider(height: 32),
+              Text('Queues', style: th.textTheme.titleLarge),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final q in [
+                  ('Planners to approve', Icons.business_center_outlined, 'planners', stats!['totals']['pending_planners']),
+                  ('Vendors to check', Icons.storefront_outlined, 'vendors', null),
+                  ('Vendor complaints', Icons.report_outlined, 'complaints', null),
+                  ('Reported photos & messages', Icons.flag_outlined, 'reports', stats!['totals']['open_reports']),
+                ])
+                  ActionChip(avatar: Icon(q.$2, size: 18), label: Text('${q.$1}${q.$4 != null ? ' (${q.$4})' : ''}'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AdminQueue(kind: q.$3)))),
+              ]),
+              const Divider(height: 32),
               Text('Bank transfers to confirm', style: th.textTheme.titleLarge),
               if (pending.isEmpty) const Text('None waiting.'),
               for (final p in pending)
@@ -186,6 +197,130 @@ class _AdminScreenState extends State<AdminScreen> {
                         PopupMenuItem(value: 'cancelled', child: Text('Cancelled')),
                       ],
                     ),
+                  ),
+                ),
+            ]),
+    );
+  }
+}
+
+
+/// Admin queues: planners, vendors (checks → approve), complaints, reported content.
+class AdminQueue extends StatefulWidget {
+  const AdminQueue({super.key, required this.kind});
+  final String kind;
+  @override
+  State<AdminQueue> createState() => _AdminQueueState();
+}
+
+class _AdminQueueState extends State<AdminQueue> {
+  List<dynamic>? items;
+  List<dynamic> extra = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => load());
+  }
+
+  Future<void> load() async {
+    final s = AppScope.read(context);
+    final r = await guard(context, () => switch (widget.kind) {
+          'planners' => s.api.get('/admin/planners', {'status': 'pending'}),
+          'vendors' => s.api.get('/admin/vendors', {'status': 'pending'}),
+          'complaints' => s.api.get('/admin/vendor-complaints'),
+          _ => s.api.get('/admin/reports'),
+        });
+    if (r == null || !mounted) return;
+    setState(() {
+      items = (r['planners'] ?? r['vendors'] ?? r['complaints'] ?? r['uploads']) as List<dynamic>;
+      extra = (r['guestbook'] as List?) ?? [];
+    });
+  }
+
+  Future<String?> reason() async {
+    final c = TextEditingController();
+    return showDialog<String>(context: context, builder: (d) => AlertDialog(title: const Text('Reason (audit log)'), content: TextField(controller: c), actions: [FilledButton(onPressed: () => Navigator.pop(d, c.text.trim()), child: const Text('OK'))]));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    Future<void> act(Future<dynamic> Function() f) async {
+      await guard(context, f);
+      await load();
+    }
+
+    final title = {'planners': 'Planners to approve', 'vendors': 'Vendors to check', 'complaints': 'Vendor complaints', 'reports': 'Reported content'}[widget.kind]!;
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: items == null
+          ? const Center(child: CircularProgressIndicator())
+          : PageBody(maxWidth: 1000, children: [
+              if (items!.isEmpty && extra.isEmpty) const Text('Nothing waiting.'),
+              for (final x in items!)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: switch (widget.kind) {
+                      'planners' => ListTile(
+                          title: Text(x['business_name'] as String),
+                          subtitle: Text('${x['email'] ?? ''} · ${x['phone'] ?? ''} · ${x['district'] ?? ''} · ${x['weddings']} weddings'),
+                          trailing: FilledButton(onPressed: () => act(() => s.api.post('/admin/planners/${x['id']}/approve')), child: const Text('Approve')),
+                        ),
+                      'vendors' => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${x['business_name']} · ${x['category']} · ${x['district']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                          Text('${x['owner_email'] ?? ''} · ${x['phone'] ?? ''} · ${x['media']} photos · ${x['packages']} packages'),
+                          Wrap(spacing: 6, children: [
+                            for (final c in const [('phone_verified', 'Phone verified'), ('registration_checked', 'Registration / NIC'), ('portfolio_checked', 'Original portfolio')])
+                              FilterChip(label: Text(c.$2), selected: x[c.$1] == true, onSelected: (v) => act(() => s.api.post('/admin/vendors/${x['id']}/checks', {c.$1: v}))),
+                          ]),
+                          Row(children: [
+                            FilledButton(
+                              onPressed: () async {
+                                final r = await reason();
+                                if (r != null && r.isNotEmpty) await act(() => s.api.post('/admin/vendors/${x['id']}/status', {'status': 'approved', 'reason': r}));
+                              },
+                              child: const Text('Approve'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () async {
+                                final r = await reason();
+                                if (r != null && r.isNotEmpty) await act(() => s.api.post('/admin/vendors/${x['id']}/status', {'status': 'draft', 'reason': r}));
+                              },
+                              child: const Text('Send back'),
+                            ),
+                          ]),
+                        ]),
+                      'complaints' => ListTile(
+                          title: Text('${x['business_name']}: from ${x['partner1']} & ${x['partner2']}'),
+                          subtitle: Text(x['body'] as String),
+                          trailing: Wrap(children: [
+                            TextButton(onPressed: () => act(() => s.api.post('/admin/vendor-complaints/${x['id']}', {'status': 'upheld'})), child: const Text('Uphold')),
+                            TextButton(onPressed: () => act(() => s.api.post('/admin/vendor-complaints/${x['id']}', {'status': 'dismissed'})), child: const Text('Dismiss')),
+                          ]),
+                        ),
+                      _ => ListTile(
+                          leading: x['kind'] == 'photo' ? Image.network(x['url'] as String, width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (_, _, _) => const Icon(Icons.image)) : const Icon(Icons.videocam),
+                          title: Text('${x['partner1']} & ${x['partner2']} · by ${x['uploader'] ?? 'guest'}'),
+                          trailing: Wrap(children: [
+                            TextButton(onPressed: () => act(() => s.api.post('/admin/reports/resolve', {'kind': 'upload', 'id': x['id'], 'action': 'restore'})), child: const Text('Restore')),
+                            TextButton(onPressed: () => act(() => s.api.post('/admin/reports/resolve', {'kind': 'upload', 'id': x['id'], 'action': 'remove'})), child: const Text('Remove')),
+                          ]),
+                        ),
+                    },
+                  ),
+                ),
+              for (final g in extra)
+                Card(
+                  child: ListTile(
+                    title: Text('Guestbook: ${g['name']} (${g['partner1']} & ${g['partner2']})'),
+                    subtitle: Text(g['message'] as String? ?? 'Voice note'),
+                    trailing: Wrap(children: [
+                      TextButton(onPressed: () => act(() => s.api.post('/admin/reports/resolve', {'kind': 'guestbook', 'id': g['id'], 'action': 'restore'})), child: const Text('Restore')),
+                      TextButton(onPressed: () => act(() => s.api.post('/admin/reports/resolve', {'kind': 'guestbook', 'id': g['id'], 'action': 'remove'})), child: const Text('Remove')),
+                    ]),
                   ),
                 ),
             ]),

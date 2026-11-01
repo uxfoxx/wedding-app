@@ -1,5 +1,6 @@
-# Wedding App: Phase 1 (the couple app)
+# Wedding App
 
+Couples, wedding planners and vendors in one app (Phases 1–3 of the feature document).
 One Flutter codebase for the **iOS app, Android app and web panel**, a small **Node.js + PostgreSQL API**
 built for a 1 GB server, and **static guest pages** (plain HTML, served from a CDN) that guests open from WhatsApp.
 
@@ -10,7 +11,8 @@ api/        Node.js 22 + PostgreSQL API, job queue, guest-page publisher
   src/lib/      renderer (guest pages), smart import, duplicates, publisher, jobs, auth
   src/routes/   auth, weddings, guests, public (guest pages), payments, admin
   test/         unit tests + end-to-end API test against PostgreSQL
-docs/PHASE1.md  what is built, what is left, and decisions needed
+docs/STATUS.md  what is built in each phase, what is left, decisions needed
+docs/DEPLOY.md  Netlify (web panel), Render (API + database), Cloudflare R2 (guest pages, photos)
 ```
 
 ## Run it locally

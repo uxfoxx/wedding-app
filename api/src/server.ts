@@ -10,6 +10,7 @@ if (config.env === 'production') {
   for (const [k, v] of [['GATEWAY_SECRET', config.gatewaySecret], ['PREVIEW_SECRET', config.previewSecret]]) {
     if (v.startsWith('dev-')) throw new Error(`${k} must be set in production`);
   }
+  if (!process.env.S3_BUCKET) console.warn('WARNING: no S3_BUCKET set. Guest pages and uploads are stored on local disk, which many hosts wipe on restart.');
 }
 mkdirSync(join(config.storageDir, 'site'), { recursive: true });
 mkdirSync(join(config.storageDir, 'media'), { recursive: true });

@@ -5,6 +5,7 @@ import 'admin.dart';
 import 'guests_tab.dart';
 import 'home_tab.dart';
 import 'invitation_tab.dart';
+import 'marketplace.dart';
 import 'onboarding.dart';
 import 'planner_home.dart';
 import 'plan_tab.dart';
@@ -23,6 +24,18 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final s = AppScope.read(context);
+      final vendor = s.deepLink.remove('vendor');
+      final review = s.deepLink.remove('review');
+      if (vendor != null) Navigator.of(context).push(MaterialPageRoute(builder: (_) => VendorProfileScreen(slug: vendor)));
+      if (review != null) Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Your vendors')), body: const ContactedVendors())));
+    });
+  }
 
   void go(String key) {
     final s0 = AppScope.read(context);

@@ -5,7 +5,7 @@ import { one, q, pool, tx } from '../db.ts';
 import { weddingAccess } from '../lib/access.ts';
 import { requireUser, userFromRequest } from '../lib/auth.ts';
 import { normalizePhone } from '../lib/phone.ts';
-import { mediaUrl, storage, uploadUrl } from '../lib/storage.ts';
+import { mediaUrl, storage, uploadTarget, usingObjectStorage } from '../lib/storage.ts';
 import { HttpError, bad, int, notFound, oneOf, randomToken, str } from '../lib/util.ts';
 import { enqueue } from '../lib/jobs.ts';
 
@@ -116,9 +116,10 @@ export default async function vendorRoutes(app: FastifyInstance) {
     const n = await one('SELECT count(*)::int AS n FROM vendor_media WHERE vendor_id=$1', [vendor.id]);
     if (n.n >= 60) throw bad('portfolio_full', 'Up to 60 items.');
     const token = randomToken(24);
+    const path = `media/vendors/${vendor.id}/${randomToken(12)}.${type.ext}`;
     const m = await one(`INSERT INTO vendor_media (vendor_id, kind, path, content_type, size_bytes, caption, upload_token, sort) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-      [vendor.id, type.kind, `media/vendors/${vendor.id}/${randomToken(12)}.${type.ext}`, b.content_type, size, str(b.caption, 'caption', { max: 200, optional: true }), token, n.n]);
-    return { id: m.id, upload_token: token, upload_url: uploadUrl(`v_${token}`), method: 'PUT' };
+      [vendor.id, type.kind, path, b.content_type, size, str(b.caption, 'caption', { max: 200, optional: true }), token, n.n]);
+    return { id: m.id, upload_token: token, upload_url: await uploadTarget(path, b.content_type, size, `v_${token}`), method: 'PUT' };
   });
 
   app.post('/vendor/media/:id/complete', async (req) => {
@@ -142,7 +143,7 @@ export default async function vendorRoutes(app: FastifyInstance) {
   });
 
   // Development stand-in for presigned portfolio uploads.
-  if (config.env !== 'production') {
+  if (!usingObjectStorage) {
     app.put('/dev-upload/v_:token', { bodyLimit: pricing.maxVideoBytes }, async (req) => {
       const m = await one('SELECT path, content_type FROM vendor_media WHERE upload_token=$1 AND NOT ready', [(req.params as any).token]);
       if (!m || req.headers['content-type'] !== m.content_type || !Buffer.isBuffer(req.body)) throw notFound();

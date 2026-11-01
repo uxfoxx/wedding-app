@@ -47,7 +47,7 @@ function cleanInvitation(b: any) {
 
 export async function weddingSummary(weddingId: string, role: string) {
   const w = await one(`SELECT id, kind, partner1, partner2, wedding_type, district, expected_guests, mode, language, plan, paid_at,
-      template_id, invitation, slug, open_link_token, published_at, created_at, planner_id FROM weddings WHERE id=$1`, [weddingId]);
+      template_id, invitation, slug, open_link_token, published_at, created_at, planner_id, showcase FROM weddings WHERE id=$1`, [weddingId]);
   const events = await q('SELECT * FROM events WHERE wedding_id=$1 ORDER BY starts_at, sort', [weddingId]);
   const c = await one(`SELECT count(*)::int AS guests, count(*) FILTER (WHERE sent_at IS NOT NULL)::int AS sent,
       count(*) FILTER (WHERE opened_at IS NOT NULL)::int AS opened,
