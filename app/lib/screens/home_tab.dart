@@ -55,11 +55,8 @@ class HomeTab extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 8),
-        GridView.count(
-          crossAxisCount: cols,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.9,
+        StatGrid(
+          cols: cols,
           children: [
             StatTile(s.t('guests'), c['guests']),
             StatTile(s.t('sent'), c['sent']),

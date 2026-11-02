@@ -78,6 +78,23 @@ class EmptyState extends StatelessWidget {
       );
 }
 
+/// Stat tiles in rows of [cols]. Each row is as tall as its tallest tile, so the label never
+/// clips on a narrow phone or with a larger text size (a fixed aspect ratio did both).
+class StatGrid extends StatelessWidget {
+  const StatGrid({super.key, required this.cols, required this.children});
+  final int cols;
+  final List<Widget> children;
+  @override
+  Widget build(BuildContext context) => Column(children: [
+        for (var i = 0; i < children.length; i += cols)
+          IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              for (var j = i; j < i + cols; j++) Expanded(child: j < children.length ? children[j] : const SizedBox()),
+            ]),
+          ),
+      ]);
+}
+
 class StatTile extends StatelessWidget {
   const StatTile(this.label, this.value, {super.key, this.color});
   final String label;
