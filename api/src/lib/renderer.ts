@@ -199,6 +199,7 @@ ${L.animation !== 'none' ? `<div id="cover" class="${escapeHtml(L.animation)}" r
   <div id="open" class="card" hidden>
     <h2 data-s="openTitle">${escapeHtml(s.openTitle)}</h2>
     <form id="openForm"><label for="openName" data-s="openName">${escapeHtml(s.openName)}</label><input id="openName" autocomplete="name" required maxlength="80">
+    <label for="openPhone" data-s="openPhone">${escapeHtml(s.openPhone)}</label><input id="openPhone" type="tel" autocomplete="tel" inputmode="tel" maxlength="30">
     <div class="row"><button class="btn primary" data-s="openContinue">${escapeHtml(s.openContinue)}</button></div></form>
     <p id="openErr" class="notice" hidden></p>
   </div>
@@ -315,7 +316,7 @@ if(D.preview){G=D.preview;token='preview';renderAll()}
 else if(hash.get('t')){loadGuest(hash.get('t'))}
 else if(hash.get('o')&&D.hasOpenLink){renderAll();$('open').hidden=false;
  $('openForm').onsubmit=function(ev){ev.preventDefault();
-  fetch(D.api+'/public/claim',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({slug:D.slug,open:hash.get('o'),name:$('openName').value})})
+  fetch(D.api+'/public/claim',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({slug:D.slug,open:hash.get('o'),name:$('openName').value,phone:$('openPhone').value})})
   .then(function(r){return r.json().then(function(j){if(!r.ok)throw j;return j})}).then(function(j){$('open').hidden=true;history.replaceState(null,'','#t='+j.token);loadGuest(j.token)})
   .catch(function(){var e=$('openErr');e.textContent=t('openNotFound');e.hidden=false})}}
 else renderAll();
