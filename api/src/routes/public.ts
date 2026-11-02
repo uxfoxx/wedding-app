@@ -4,7 +4,8 @@ import { one, q, tx } from '../db.ts';
 import { matchGuestName } from '../lib/duplicates.ts';
 import { assertCanAddGuests } from '../lib/entitlements.ts';
 import { guestJson, publishGuest } from '../lib/publisher.ts';
-import { HttpError, bad, int, oneOf, randomToken, str } from '../lib/util.ts';
+import { normalizePhone } from '../lib/phone.ts';
+import { HttpError, bad, int, oneOf, randomToken, safeEqual, str } from '../lib/util.ts';
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{16,64}$/;
 
@@ -49,23 +50,28 @@ export default async function publicRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  // Open group link: the guest types their name. A confident match returns that guest's link;
-  // otherwise a new guest is added (marked "open_link" for the couple to review), within the plan limit.
+  // Open group link: the guest types their name and mobile number. Anyone with the group link can
+  // type an invited guest's name, so a name alone never returns that guest's personal link: the
+  // number must also be the one the couple saved for them. Anything else (no match, no number on
+  // file, a wrong number) adds a new guest marked "open_link" for the couple to review and merge,
+  // within the plan limit. Both answers look the same, so the form can't be used to test names or numbers.
   app.post('/public/claim', { config: { rateLimit: 10 } }, async (req) => {
     const b = req.body as any;
     const name = str(b?.name, 'name', { max: 80 })!;
     if (name.length < 3) throw bad('name_too_short');
-    const w = await one('SELECT id, open_link_token FROM weddings WHERE slug=$1', [String(b?.slug ?? '')]);
+    const phone = normalizePhone(str(b?.phone, 'phone', { max: 30, optional: true }));
+    const w = await one('SELECT id, open_link_token, contacts_purged_at FROM weddings WHERE slug=$1', [String(b?.slug ?? '')]);
     if (!w?.open_link_token || w.open_link_token !== b?.open) throw new HttpError(404, 'invalid_link');
-    const guests = await q<{ id: string; name: string; token: string }>(`SELECT id, name, token FROM guests WHERE wedding_id=$1`, [w.id]);
+    const guests = await q<{ id: string; name: string; phone: string | null; token: string }>(`SELECT id, name, phone, token FROM guests WHERE wedding_id=$1`, [w.id]);
     const match = matchGuestName(name, guests);
-    if (match) return { token: match.token, matched: true };
+    if (match?.phone && phone && safeEqual(match.phone, phone)) return { token: match.token, matched: true };
     try {
       const token = await tx(async (c) => {
         await c.query('SELECT 1 FROM weddings WHERE id=$1 FOR UPDATE', [w.id]);
         await assertCanAddGuests(w.id, 1, c);
         const t = randomToken(16);
-        const r = await c.query(`INSERT INTO guests (wedding_id, name, seats, token, source, opened_at, tags) VALUES ($1,$2,1,$3,'open_link', now(), '{needs_review}') RETURNING id`, [w.id, name, t]);
+        const r = await c.query(`INSERT INTO guests (wedding_id, name, phone, seats, token, source, opened_at, tags) VALUES ($1,$2,$3,1,$4,'open_link', now(), '{needs_review}') RETURNING id`,
+          [w.id, name, w.contacts_purged_at ? null : phone, t]);
         await c.query('INSERT INTO guest_events SELECT $1, id FROM events WHERE wedding_id=$2', [r.rows[0].id, w.id]);
         return { t, id: r.rows[0].id };
       });

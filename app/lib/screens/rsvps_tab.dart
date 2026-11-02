@@ -61,7 +61,7 @@ class _RsvpsTabState extends State<RsvpsTab> {
     return RefreshIndicator(
       onRefresh: load,
       child: PageBody(maxWidth: 1000, children: [
-        GridView.count(crossAxisCount: cols, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), childAspectRatio: 1.9, children: [
+        StatGrid(cols: cols, children: [
           StatTile(s.t('invited'), t['invited']),
           StatTile(s.t('sent'), t['sent']),
           StatTile(s.t('opened'), t['opened']),

@@ -187,11 +187,24 @@ test('Phase 1 couple flow, end to end', async () => {
   assert.match(csv.body, /Uncle/);
   assert.match(csv.body, /Poruwa Ceremony: reply/);
 
-  // Open group link: matched name → existing guest; unknown name → new guest for review.
+  // Open group link: name + the number the couple saved → that guest's link. A name alone, or a wrong
+  // number, never returns it (anyone with the group link could type the name): those, and unknown
+  // names, become new guests for review, and the answer doesn't say which case it was.
   const ol = await call('POST', `/weddings/${W}/open-link`, couple, { enabled: true });
   const open = new URLSearchParams(ol.body.wedding.open_link.split('#')[1]).get('o');
-  const m1 = await call('POST', '/public/claim', undefined, { slug, open, name: 'chathura' });
+  const chathura = (await pool.query('SELECT token FROM guests WHERE wedding_id=$1 AND name=$2', [W, 'Chathura'])).rows[0];
+  const m1 = await call('POST', '/public/claim', undefined, { slug, open, name: 'chathura', phone: '0061 412 000 008' });
   assert.equal(m1.body.matched, true);
+  assert.equal(m1.body.token, chathura.token);
+  for (const phone of [undefined, '+61 412 000 009']) {
+    const guess = await call('POST', '/public/claim', undefined, { slug, open, name: 'chathura', phone });
+    assert.equal(guess.status, 200);
+    assert.equal(guess.body.matched, false);
+    assert.notEqual(guess.body.token, chathura.token);
+  }
+  const wrong = (await pool.query(`SELECT phone, tags FROM guests WHERE wedding_id=$1 AND source='open_link' AND phone IS NOT NULL`, [W])).rows[0];
+  assert.equal(wrong.phone, '+61412000009');
+  assert.deepEqual(wrong.tags, ['needs_review']);
   const m2 = await call('POST', '/public/claim', undefined, { slug, open, name: 'Someone New' });
   assert.equal(m2.body.matched, false);
   assert.equal((await call('POST', '/public/claim', undefined, { slug, open: 'wrong', name: 'Someone' })).status, 404);
