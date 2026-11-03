@@ -2,6 +2,10 @@
 // Sinhala and Tamil must be reviewed by native speakers before launch.
 const Map<String, Map<String, String>> _strings = {
   'en': {
+    'account': 'Account',
+    'readiness': 'Wedding readiness',
+    'daysToGo': 'days to go', 'today': 'Today', 'ready': 'ready', 'stepOf': 'Step {n} of {total}', 'searchGuests': 'Search by name or phone',
+    'stepMedia': 'Photos & music', 'stepShare': 'Share', 'theDay': 'The day', 'planning': 'Planning',
     'appName': 'Wedding',
     'welcome': 'Your wedding invitation, ready in minutes',
     'welcomeSub': 'Create a beautiful invitation, send it on WhatsApp and see who is coming.',
@@ -95,6 +99,10 @@ const Map<String, Map<String, String>> _strings = {
     'openLinkSub': 'One link for a family group chat. Guests type their name to RSVP.',
   },
   'si': {
+    'account': 'ගිණුම',
+    'readiness': 'විවාහයට සූදානම',
+    'daysToGo': 'දින ඉතිරියි', 'today': 'අද', 'ready': 'සූදානම්', 'stepOf': 'පියවර {n} / {total}', 'searchGuests': 'නම හෝ දුරකථනයෙන් සොයන්න',
+    'stepMedia': 'ඡායාරූප සහ සංගීතය', 'stepShare': 'බෙදාගන්න', 'theDay': 'මංගල දිනය', 'planning': 'සැලසුම්',
     'welcome': 'ඔබේ විවාහ ආරාධනාව මිනිත්තු කිහිපයකින්',
     'welcomeSub': 'ලස්සන ආරාධනාවක් සාදා WhatsApp හරහා යවා, කවුද එන්නේ කියා බලන්න.',
     'continueEmail': 'ඊමේල් සමඟ ඉදිරියට',
@@ -133,6 +141,10 @@ const Map<String, Map<String, String>> _strings = {
     'settings': 'සැකසුම්', 'language': 'භාෂාව', 'upgrade': 'Wedding Pass ලබා ගන්න', 'signOut': 'පිටවන්න',
   },
   'ta': {
+    'account': 'கணக்கு',
+    'readiness': 'திருமணத் தயார்நிலை',
+    'daysToGo': 'நாட்கள் உள்ளன', 'today': 'இன்று', 'ready': 'தயார்', 'stepOf': 'படி {n} / {total}', 'searchGuests': 'பெயர் அல்லது தொலைபேசி மூலம் தேடுங்கள்',
+    'stepMedia': 'புகைப்படங்கள் & இசை', 'stepShare': 'பகிர்', 'theDay': 'திருமண நாள்', 'planning': 'திட்டமிடல்',
     'welcome': 'உங்கள் திருமண அழைப்பிதழ், சில நிமிடங்களில்',
     'welcomeSub': 'அழகான அழைப்பிதழை உருவாக்கி, WhatsApp இல் அனுப்பி, யார் வருகிறார்கள் என்று பாருங்கள்.',
     'continueEmail': 'மின்னஞ்சலுடன் தொடர்க',

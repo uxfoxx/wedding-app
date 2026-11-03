@@ -64,6 +64,27 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Instrument Serif (display) and Manrope (interface), both SIL Open Font License, Latin only;
+  # Sinhala and Tamil fall back to the system fonts.
+  fonts:
+    - family: Instrument Serif
+      fonts:
+        - asset: assets/fonts/instrument-serif-400-normal.ttf
+        - asset: assets/fonts/instrument-serif-400-italic.ttf
+          style: italic
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/manrope-400-normal.ttf
+          weight: 400
+        - asset: assets/fonts/manrope-500-normal.ttf
+          weight: 500
+        - asset: assets/fonts/manrope-600-normal.ttf
+          weight: 600
+        - asset: assets/fonts/manrope-700-normal.ttf
+          weight: 700
+        - asset: assets/fonts/manrope-800-normal.ttf
+          weight: 800
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

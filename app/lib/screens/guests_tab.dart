@@ -103,7 +103,6 @@ class GuestsTabState extends State<GuestsTab> {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final th = Theme.of(context);
     if (error != null) {
       return EmptyState(icon: Icons.cloud_off, title: 'Could not load guests', body: error!, action: s.t('retry'), onAction: load);
     }
@@ -119,30 +118,55 @@ class GuestsTabState extends State<GuestsTab> {
     }).toList();
     final seats = guests!.fold<int>(0, (a, g) => a + (g['seats'] as int));
     final limit = s.summary?['plan']?['limits']?['guests'];
+    final coming = guests!.where((g) => guestStatus(g as Map) == 'coming').length;
 
     return RefreshIndicator(
       onRefresh: load,
-      child: PageBody(maxWidth: 1000, children: [
+      color: Brand.accent,
+      child: PageBody(maxWidth: 1000, padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
         // The whole app shows its own banner when it started offline; this one covers losing the
         // connection later, on this tab only.
         if (offlineAt != null && !s.offline) ...[OfflineBanner(at: offlineAt!, onRetry: load), const SizedBox(height: 8)],
-        Row(children: [
-          Expanded(child: Text('${guests!.length} ${s.t('guests').toLowerCase()} · $seats ${s.t('seats').toLowerCase()}${limit != null ? ' (free plan: up to $limit)' : ''}', style: th.textTheme.titleMedium)),
-        ]),
-        const SizedBox(height: 8),
-        if (s.canEditGuests && offlineAt == null)
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            FilledButton.icon(key: const Key('sendInvites'), onPressed: () => widget.onGo('send'), icon: const Icon(Icons.send), label: Text(s.t('sendInvites'))),
-            OutlinedButton.icon(key: const Key('addGuest'), onPressed: () => edit(), icon: const Icon(Icons.person_add_alt), label: Text(s.t('addGuest'))),
-            OutlinedButton.icon(key: const Key('import'), onPressed: openImport, icon: const Icon(Icons.upload_file), label: Text(s.t('import'))),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(2, 8, 2, 16),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Eyebrow(s.t('guests'), color: Brand.accent),
+                const SizedBox(height: 6),
+                Semantics(
+                  header: true,
+                  label: '${guests!.length} ${s.t('guests')}, $seats ${s.t('seats')}',
+                  excludeSemantics: true,
+                  child: Text.rich(TextSpan(children: [
+                    TextSpan(text: '${guests!.length}', style: Brand.display(60)),
+                    TextSpan(text: '  $seats ${s.t('seats').toLowerCase()}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Brand.ink2)),
+                  ])),
+                ),
+                if (limit != null) Text('Free plan: up to $limit', style: const TextStyle(fontSize: 13.5, color: Brand.ink2)),
+              ]),
+            ),
+            if (coming > 0) StatusTag('$coming ${s.t('coming').toLowerCase()}', Brand.success, filled: true),
           ]),
+        ),
+        if (s.canEditGuests && offlineAt == null) ...[
+          FilledButton.icon(key: const Key('sendInvites'), onPressed: () => widget.onGo('send'), icon: const Icon(Icons.send_rounded, size: 20), label: Text(s.t('sendInvites'))),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(key: const Key('addGuest'), onPressed: () => edit(), icon: const Icon(Icons.person_add_alt_rounded, size: 20), label: Text(s.t('addGuest'), overflow: TextOverflow.ellipsis))),
+            const SizedBox(width: 10),
+            Expanded(child: OutlinedButton.icon(key: const Key('import'), onPressed: openImport, icon: const Icon(Icons.file_download_outlined, size: 20), label: Text(s.t('import'), overflow: TextOverflow.ellipsis))),
+          ]),
+        ],
         if (dupPairs.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Card(
-            color: th.colorScheme.tertiaryContainer,
+          const SizedBox(height: 12),
+          Panel(
+            padding: EdgeInsets.zero,
+            color: const Color(0xFFF6EBD6),
+            borderColor: const Color(0xFFE8D3AE),
             child: ExpansionTile(
-              leading: const Icon(Icons.content_copy),
-              title: Text('${s.t('duplicates')} (${dupPairs.length})'),
+              leading: const Icon(Icons.content_copy_rounded, color: Brand.warn),
+              title: Text('${s.t('duplicates')} (${dupPairs.length})', style: const TextStyle(fontWeight: FontWeight.w700)),
               children: [
                 for (final p in dupPairs)
                   ListTile(
@@ -162,18 +186,31 @@ class GuestsTabState extends State<GuestsTab> {
             ),
           ),
         ],
-        const SizedBox(height: 8),
-        TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search'), onChanged: (v) => setState(() => query = v)),
-        const SizedBox(height: 8),
+        const SizedBox(height: 20),
+        TextField(
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search_rounded),
+            hintText: s.t('searchGuests'),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(99), borderSide: const BorderSide(color: Brand.line)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(99), borderSide: const BorderSide(color: Brand.line)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(99), borderSide: const BorderSide(color: Brand.ink, width: 1.6)),
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          onChanged: (v) => setState(() => query = v),
+        ),
+        const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(children: [
-            for (final f in const [('all', 'All'), ('notSent', 'Not sent'), ('noReply', 'No reply'), ('coming', 'Coming')])
+            for (final f in [('all', s.t('toneAll')), ('notSent', 'Not sent'), ('noReply', s.t('noReply')), ('coming', s.t('coming'))])
               Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(f.$2), selected: filter == f.$1, onSelected: (_) => setState(() => filter = f.$1))),
           ]),
         ),
-        const SizedBox(height: 8),
-        for (final g in list) _GuestRow(g: g as Map<String, dynamic>, onTap: s.canEditGuests ? () => edit(g) : null),
+        const SizedBox(height: 12),
+        if (list.isEmpty)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: Text('No guests match.', style: TextStyle(color: Brand.ink2))))
+        else
+          RowGroup(children: [for (final g in list) _GuestRow(g: g as Map<String, dynamic>, onTap: s.canEditGuests ? () => edit(g) : null)]),
       ]),
     );
   }
@@ -188,30 +225,41 @@ class _GuestRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final st = guestStatus(g);
-    final cs = Theme.of(context).colorScheme;
     final (label, color) = switch (st) {
-      'coming' => (s.t('coming'), Colors.green.shade700),
-      'notComing' => (s.t('notComing'), cs.error),
-      'maybe' => (s.t('maybe'), Colors.orange.shade800),
-      'opened' => (s.t('opened'), cs.primary),
-      'sent' => (s.t('sent'), cs.outline),
-      _ => ('Not sent', cs.outline),
+      'coming' => (s.t('coming'), Brand.success),
+      'notComing' => (s.t('notComing'), Brand.accent),
+      'maybe' => (s.t('maybe'), Brand.warn),
+      'opened' => (s.t('opened'), Brand.gold),
+      'sent' => (s.t('sent'), Brand.ink2),
+      _ => ('Not sent', Brand.ink2),
     };
     final name = [g['title'], g['name']].where((x) => x != null && '$x'.isNotEmpty).join(' ');
-    return Card(
-      child: ListTile(
-        onTap: onTap,
-        title: Row(children: [
-          Flexible(child: Text(name, overflow: TextOverflow.ellipsis)),
-          if (g['vip'] == true) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.star, size: 18, color: Brand.gold)),
-          if ((g['tags'] as List).contains('needs_review')) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.help_outline, size: 18)),
+    final detail = [
+      '${g['seats']} ${g['seats'] == 1 ? 'seat' : 'seats'}',
+      if (g['group_name'] != null) g['group_name'],
+      if (g['phone'] != null) g['phone'],
+    ].join(' · ');
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(children: [
+          Monogram('${g['name']}'),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Flexible(child: Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+                if (g['vip'] == true) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.star_rounded, size: 18, color: Brand.gold, semanticLabel: 'VIP')),
+                if ((g['tags'] as List).contains('needs_review')) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.help_outline_rounded, size: 17, color: Brand.warn, semanticLabel: 'Needs review')),
+              ]),
+              const SizedBox(height: 2),
+              Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Brand.ink2, fontSize: 13.5)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          StatusTag(label, color),
         ]),
-        subtitle: Text([
-          '${g['seats']} ${g['seats'] == 1 ? 'seat' : 'seats'}',
-          if (g['phone'] != null) g['phone'],
-          if (g['group_name'] != null) g['group_name'],
-        ].join(' · ')),
-        trailing: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
       ),
     );
   }

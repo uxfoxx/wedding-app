@@ -498,12 +498,12 @@ class _StatsState extends State<_Stats> {
     return RefreshIndicator(
       onRefresh: load,
       child: PageBody(maxWidth: 900, children: [
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          SizedBox(width: 170, child: StatTile('Profile views (30 days)', stats!['views_30d'])),
-          SizedBox(width: 170, child: StatTile('Enquiries (30 days)', stats!['enquiries_30d'])),
-          SizedBox(width: 170, child: StatTile('Average reply', stats!['reply_hours'] == null ? '—' : '${stats!['reply_hours']} h', color: (stats!['reply_hours'] ?? 0) > 24 ? th.colorScheme.error : null)),
-          SizedBox(width: 170, child: StatTile('Booked', stats!['booked'])),
-          SizedBox(width: 170, child: StatTile('Shortlisted', stats!['shortlisted'])),
+        StatGrid(cols: isWide(context) ? 4 : 2, children: [
+          StatTile('Profile views (30 days)', stats!['views_30d']),
+          StatTile('Enquiries (30 days)', stats!['enquiries_30d']),
+          StatTile('Average reply', stats!['reply_hours'] == null ? '—' : '${stats!['reply_hours']} h', color: (stats!['reply_hours'] ?? 0) > 24 ? th.colorScheme.error : null),
+          StatTile('Booked', stats!['booked']),
+          StatTile('Shortlisted', stats!['shortlisted']),
         ]),
         if ((stats!['unanswered'] as int) > 0) Text('${stats!['unanswered']} enquiries are waiting for a reply. Couples choose vendors who answer within a day.', style: TextStyle(color: th.colorScheme.error)),
         const SizedBox(height: 12),

@@ -57,11 +57,11 @@ class _BudgetScreenState extends State<BudgetScreen> {
       body: RefreshIndicator(
         onRefresh: load,
         child: PageBody(maxWidth: 900, children: [
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            SizedBox(width: 200, child: StatTile('Planned', lkr(t['estimated'] as num))),
-            SizedBox(width: 200, child: StatTile('Agreed cost', lkr(t['cost'] as num))),
-            SizedBox(width: 200, child: StatTile('Paid', lkr(t['paid'] as num), color: Colors.green.shade700)),
-            SizedBox(width: 200, child: StatTile('Still to pay', lkr(t['due'] as num), color: (t['due'] as num) > 0 ? th.colorScheme.error : null)),
+          StatGrid(cols: isWide(context) ? 4 : 2, children: [
+            StatTile('Planned', lkr(t['estimated'] as num)),
+            StatTile('Agreed cost', lkr(t['cost'] as num)),
+            StatTile('Paid', lkr(t['paid'] as num), color: Brand.success),
+            StatTile('Still to pay', lkr(t['due'] as num), color: (t['due'] as num) > 0 ? th.colorScheme.error : null),
           ]),
           for (final r in data!['reminders'] as List)
             Card(

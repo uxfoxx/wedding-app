@@ -31,37 +31,51 @@ class _ReadinessCardState extends State<ReadinessCard> {
   @override
   Widget build(BuildContext context) {
     if (r == null) return const SizedBox.shrink();
-    final th = Theme.of(context);
+    final s = AppScope.of(context);
     final score = r!['score'] as int;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
           SizedBox(
-            width: 72,
-            height: 72,
+            width: 78,
+            height: 78,
             child: Stack(alignment: Alignment.center, children: [
-              SizedBox(width: 72, height: 72, child: CircularProgressIndicator(value: score / 100, strokeWidth: 7, backgroundColor: th.colorScheme.surfaceContainerHighest)),
-              Text('$score%', style: th.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              SizedBox(width: 78, height: 78, child: CircularProgressIndicator(value: score / 100, strokeWidth: 6, strokeCap: StrokeCap.round, color: Brand.accent, backgroundColor: Brand.sunk)),
+              Text('$score', style: Brand.display(32)),
             ]),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 18),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Your wedding is $score% ready', style: th.textTheme.titleMedium),
-              const SizedBox(height: 4),
-              for (final n in r!['next'] as List)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: InkWell(
-                    onTap: widget.onGo == null ? null : () => widget.onGo!(n['key'] as String),
-                    child: Row(children: [const Icon(Icons.arrow_right, size: 20), Expanded(child: Text(n['label'] as String))]),
-                  ),
-                ),
-            ]),
+            child: Semantics(
+              label: 'Your wedding is $score% ready',
+              excludeSemantics: true,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Eyebrow('$score% ${s.t('ready')}', color: Brand.accent),
+                const SizedBox(height: 4),
+                Text(s.t('readiness'), style: Brand.display(30)),
+              ]),
+            ),
           ),
         ]),
-      ),
+        if ((r!['next'] as List).isNotEmpty) ...[
+          const SizedBox(height: 14),
+          for (final n in r!['next'] as List) ...[
+            const Divider(),
+            InkWell(
+              onTap: widget.onGo == null ? null : () => widget.onGo!(n['key'] as String),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(children: [
+                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Brand.accent, shape: BoxShape.circle)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(n['label'] as String, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15.5))),
+                  if (widget.onGo != null) const Icon(Icons.arrow_forward_rounded, size: 18, color: Brand.ink2),
+                ]),
+              ),
+            ),
+          ],
+        ],
+      ]),
     );
   }
 }

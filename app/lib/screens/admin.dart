@@ -75,11 +75,11 @@ class _AdminScreenState extends State<AdminScreen> {
           ? const Center(child: CircularProgressIndicator())
           : PageBody(maxWidth: 1100, children: [
               Semantics(header: true, child: Text('Phase 1 gate', style: th.textTheme.titleLarge)),
-              Wrap(spacing: 8, children: [
-                SizedBox(width: 220, child: StatTile('Weddings that sent (target ${gate['weddingsSent']['target']})', gate['weddingsSent']['now'])),
-                SizedBox(width: 220, child: StatTile('Paid weddings (target ${gate['paid']['target']})', gate['paid']['now'])),
-                SizedBox(width: 220, child: StatTile('Pending transfers', stats!['totals']['pending_transfers'])),
-                SizedBox(width: 220, child: StatTile('Failed jobs', stats!['totals']['failed_jobs'], color: (stats!['totals']['failed_jobs'] as int) > 0 ? th.colorScheme.error : null)),
+              StatGrid(cols: isWide(context) ? 4 : 2, children: [
+                StatTile('Weddings that sent (target ${gate['weddingsSent']['target']})', gate['weddingsSent']['now']),
+                StatTile('Paid weddings (target ${gate['paid']['target']})', gate['paid']['now']),
+                StatTile('Pending transfers', stats!['totals']['pending_transfers']),
+                StatTile('Failed jobs', stats!['totals']['failed_jobs'], color: (stats!['totals']['failed_jobs'] as int) > 0 ? th.colorScheme.error : null),
               ]),
               const SizedBox(height: 16),
               Text('Last 14 days', style: th.textTheme.titleMedium),

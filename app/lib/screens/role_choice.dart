@@ -11,31 +11,40 @@ class RoleChoiceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final th = Theme.of(context);
-    Widget option(IconData icon, String title, String sub, Key key, VoidCallback onTap) => Card(
-          child: ListTile(
-            key: key,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            leading: Icon(icon, size: 34, color: th.colorScheme.primary),
-            title: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            subtitle: Text(sub),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: onTap,
-          ),
+    Widget option(String n, IconData icon, String title, String sub, Key key, VoidCallback onTap) => Panel(
+          key: key,
+          onTap: onTap,
+          padding: const EdgeInsets.all(20),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  IconTile(icon, tint: Brand.accent, size: 40),
+                  const Spacer(),
+                  Text(n, style: Brand.display(22, color: Brand.ink2)),
+                ]),
+                const SizedBox(height: 18),
+                Text(title, style: Brand.display(28)),
+                const SizedBox(height: 6),
+                Text(sub, style: const TextStyle(color: Brand.ink2, fontSize: 15)),
+              ]),
+            ),
+          ]),
         );
     return Scaffold(
-      appBar: AppBar(actions: [TextButton(onPressed: () => s.signOut(), child: Text(s.t('signOut')))]),
+      appBar: AppBar(actions: [TextButton(onPressed: () => s.signOut(), child: Text(s.t('signOut'))), const SizedBox(width: 8)]),
       body: SafeArea(
-        child: PageBody(maxWidth: 560, children: [
-          Text('Welcome!', style: th.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          const Text('Tell us how you will use the app. You can add another role later.'),
-          const SizedBox(height: 20),
-          option(Icons.favorite_outline, "I'm planning my wedding", 'For the couple or a family member organising it.', const Key('roleCouple'),
+        child: PageBody(maxWidth: 560, padding: const EdgeInsets.fromLTRB(16, 0, 16, 32), children: [
+          const SectionHeader('Welcome!', size: 52, padding: EdgeInsets.fromLTRB(4, 0, 4, 8)),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 18),
+            child: Text('Tell us how you will use the app. You can add another role later.', style: TextStyle(color: Brand.ink2, fontSize: 16.5)),
+          ),
+          option('01', Icons.favorite_rounded, "I'm planning my wedding", 'For the couple or a family member organising it.', const Key('roleCouple'),
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OnboardingScreen(canCancel: true)))),
-          option(Icons.business_center_outlined, "I'm a wedding planner", 'Run all your client weddings, team and tasks in one place.', const Key('rolePlanner'),
+          option('02', Icons.work_outline_rounded, "I'm a wedding planner", 'Run all your client weddings, team and tasks in one place.', const Key('rolePlanner'),
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlannerSetupScreen()))),
-          option(Icons.storefront_outlined, 'I offer wedding services', 'Photographers, decorators, venues and more: get enquiries from couples.', const Key('roleVendor'),
+          option('03', Icons.storefront_outlined, 'I offer wedding services', 'Photographers, decorators, venues and more: get enquiries from couples.', const Key('roleVendor'),
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VendorSetupScreen()))),
         ]),
       ),

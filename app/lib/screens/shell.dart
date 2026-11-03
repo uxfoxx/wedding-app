@@ -76,11 +76,11 @@ class _ShellState extends State<Shell> {
     final s = AppScope.of(context);
     final w = s.wedding;
     final tabs = <(String, IconData, Widget)>[
-      (s.t('home'), Icons.home_outlined, HomeTab(onGo: go)),
-      (s.t('invitation'), Icons.mail_outline, InvitationTab(onGo: go)),
-      (s.t('guests'), Icons.people_outline, GuestsTab(onGo: go)),
-      (s.t('rsvps'), Icons.fact_check_outlined, RsvpsTab(onGo: go)),
-      if (s.isAdvanced) (s.t('plan'), Icons.event_note_outlined, const PlanTab()),
+      (s.t('home'), Icons.space_dashboard_outlined, HomeTab(onGo: go)),
+      (s.t('invitation'), Icons.local_post_office_outlined, InvitationTab(onGo: go)),
+      (s.t('guests'), Icons.groups_2_outlined, GuestsTab(onGo: go)),
+      (s.t('rsvps'), Icons.how_to_reg_outlined, RsvpsTab(onGo: go)),
+      if (s.isAdvanced) (s.t('plan'), Icons.auto_stories_outlined, const PlanTab()),
     ];
     if (index >= tabs.length) index = 0;
     final wide = isWide(context);
@@ -88,12 +88,29 @@ class _ShellState extends State<Shell> {
     final body = s.offline
         ? Column(children: [OfflineBanner(at: s.offlineCopyAt!, onRetry: () => guard(context, s.retryOnline)), Expanded(child: stack)])
         : stack;
+    final names = '${w['partner1']} & ${w['partner2']}';
+    final initials = '${(w['partner1'] as String? ?? '?').characters.first}${(w['partner2'] as String? ?? '?').characters.first}';
+    final heading = Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(color: Brand.ink, shape: BoxShape.circle),
+        child: Text(initials.toUpperCase(), style: const TextStyle(fontFamily: Brand.serif, color: Brand.paper, fontSize: 15, height: 1)),
+      ),
+      const SizedBox(width: 10),
+      Flexible(child: Text(names, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: Brand.sans, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2))),
+    ]);
 
     return Scaffold(
+      extendBody: true,
       appBar: AppBar(
-        leading: s.inPlannerWorkspace ? IconButton(tooltip: 'All client weddings', icon: const Icon(Icons.arrow_back), onPressed: s.closeWedding) : null,
-        title: s.inPlannerWorkspace ? Text('${w['partner1']} & ${w['partner2']}', overflow: TextOverflow.ellipsis) : PopupMenuButton<String>(
+        toolbarHeight: 64,
+        titleSpacing: s.inPlannerWorkspace ? 0 : 16,
+        leading: s.inPlannerWorkspace ? IconButton(tooltip: 'All client weddings', icon: const Icon(Icons.arrow_back_rounded), onPressed: s.closeWedding) : null,
+        title: s.inPlannerWorkspace ? heading : PopupMenuButton<String>(
           tooltip: 'Switch wedding',
+          position: PopupMenuPosition.under,
           onSelected: (id) {
             if (id == 'new') {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OnboardingScreen(canCancel: true)));
@@ -106,16 +123,24 @@ class _ShellState extends State<Shell> {
             const PopupMenuItem(value: 'new', child: Text('+ New event')),
           ],
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Flexible(child: Text('${w['partner1']} & ${w['partner2']}', overflow: TextOverflow.ellipsis)),
-            const Icon(Icons.arrow_drop_down),
+            Flexible(child: heading),
+            const SizedBox(width: 2),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 22, color: Brand.ink2),
           ]),
         ),
         actions: [
-          if (!s.isPaid) TextButton(onPressed: () => go('upgrade'), child: Text(s.t('pass'))),
+          if (!s.isPaid)
+            IconButton(
+              tooltip: s.t('pass'),
+              onPressed: () => go('upgrade'),
+              style: IconButton.styleFrom(backgroundColor: Brand.accentSoft, foregroundColor: Brand.accent),
+              icon: const Icon(Icons.auto_awesome_rounded, size: 20),
+            ),
           const WorkspaceMenu(),
           if (s.isStaff)
-            IconButton(tooltip: s.t('admin'), icon: const Icon(Icons.admin_panel_settings_outlined), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminScreen()))),
-          IconButton(tooltip: s.t('settings'), icon: const Icon(Icons.settings_outlined), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()))),
+            IconButton(tooltip: s.t('admin'), icon: const Icon(Icons.shield_outlined), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminScreen()))),
+          IconButton(tooltip: s.t('settings'), icon: const Icon(Icons.tune_rounded), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()))),
+          const SizedBox(width: 6),
         ],
       ),
       body: wide
@@ -130,13 +155,7 @@ class _ShellState extends State<Shell> {
               Expanded(child: body),
             ])
           : body,
-      bottomNavigationBar: wide
-          ? null
-          : NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: (i) => setState(() => index = i),
-              destinations: [for (final t in tabs) NavigationDestination(icon: Icon(t.$2), label: t.$1)],
-            ),
+      bottomNavigationBar: wide ? null : DockNav(items: [for (final t in tabs) (t.$1, t.$2)], index: index, onTap: (i) => setState(() => index = i)),
     );
   }
 }

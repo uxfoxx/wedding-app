@@ -46,37 +46,71 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (mounted) setState(() => busy = false);
   }
 
-  Widget choice(String label, String sub, IconData icon, bool selected, VoidCallback onTap) => Card(
-        color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          leading: Icon(icon, size: 32),
-          title: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          subtitle: sub.isEmpty ? null : Text(sub),
-          trailing: selected ? const Icon(Icons.check_circle) : null,
+  Widget choice(String label, String sub, IconData icon, bool selected, VoidCallback onTap) => Semantics(
+        selected: selected,
+        child: Panel(
           onTap: onTap,
+          color: selected ? Brand.accentSoft : Brand.surface,
+          borderColor: selected ? Brand.ink : Brand.line,
+          padding: const EdgeInsets.all(18),
+          child: Row(children: [
+            IconTile(icon, tint: selected ? Brand.accent : null),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(label, style: Brand.display(26)),
+                if (sub.isNotEmpty) ...[const SizedBox(height: 4), Text(sub, style: const TextStyle(color: Brand.ink2, fontSize: 15))],
+              ]),
+            ),
+            const SizedBox(width: 10),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: selected ? Brand.ink : Colors.transparent, border: Border.all(color: selected ? Brand.ink : Brand.line, width: 1.5)),
+              child: selected ? const Icon(Icons.check_rounded, size: 16, color: Brand.paper) : null,
+            ),
+          ]),
         ),
+      );
+
+  /// A date or time that opens a picker, drawn like a field with its label above the value.
+  Widget pickerField(String label, String value, IconData icon, VoidCallback onTap, {Key? key}) => Panel(
+        key: key,
+        onTap: onTap,
+        margin: EdgeInsets.zero,
+        radius: 14,
+        padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Eyebrow(label),
+              const SizedBox(height: 4),
+              Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+          Icon(icon, color: Brand.ink2, size: 20),
+        ]),
       );
 
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final th = Theme.of(context).textTheme;
     final steps = <Widget>[
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(s.t('whatPlanning'), style: th.headlineSmall),
-        const SizedBox(height: 16),
-        for (final k in const [('wedding', Icons.favorite), ('engagement', Icons.diamond_outlined), ('homecoming', Icons.home_outlined), ('other', Icons.celebration_outlined)])
+        Text(s.t('whatPlanning'), style: Brand.display(44)),
+        const SizedBox(height: 20),
+        for (final k in const [('wedding', Icons.favorite_rounded), ('engagement', Icons.diamond_outlined), ('homecoming', Icons.cottage_outlined), ('other', Icons.celebration_outlined)])
           choice(s.t(k.$1), '', k.$2, kind == k.$1, () => setState(() { kind = k.$1; step = 1; })),
       ]),
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(s.t('mode'), style: th.headlineSmall),
+        Text(s.t('mode'), style: Brand.display(44)),
         const SizedBox(height: 16),
-        choice(s.t('startSimple'), s.t('startSimpleSub'), Icons.bolt, mode == 'easy', () => setState(() { mode = 'easy'; step = 2; })),
-        choice(s.t('fullTools'), s.t('fullToolsSub'), Icons.tune, mode == 'advanced', () => setState(() { mode = 'advanced'; step = 2; })),
+        choice(s.t('startSimple'), s.t('startSimpleSub'), Icons.bolt_rounded, mode == 'easy', () => setState(() { mode = 'easy'; step = 2; })),
+        choice(s.t('fullTools'), s.t('fullToolsSub'), Icons.tune_rounded, mode == 'advanced', () => setState(() { mode = 'advanced'; step = 2; })),
       ]),
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(s.t('names'), style: th.headlineSmall),
+        Text(s.t('names'), style: Brand.display(44)),
         const SizedBox(height: 16),
         TextField(key: const Key('p1'), controller: p1, textCapitalization: TextCapitalization.words, decoration: InputDecoration(labelText: s.t('partner1'))),
         const SizedBox(height: 12),
@@ -92,27 +126,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const SizedBox(height: 12),
         Row(children: [
           Expanded(
-            child: OutlinedButton.icon(
-              key: const Key('date'),
-              icon: const Icon(Icons.event),
-              label: Text(date == null ? s.t('date') : '${date!.day}/${date!.month}/${date!.year}'),
-              onPressed: () async {
-                final now = DateTime.now();
-                final d = await showDatePicker(context: context, firstDate: now.subtract(const Duration(days: 1)), lastDate: DateTime(now.year + 4), initialDate: date ?? now.add(const Duration(days: 120)));
-                if (d != null) setState(() => date = d);
-              },
-            ),
+            child: pickerField(s.t('date'), date == null ? '—' : '${date!.day}/${date!.month}/${date!.year}', Icons.calendar_today_rounded, key: const Key('date'), () async {
+              final now = DateTime.now();
+              final d = await showDatePicker(context: context, firstDate: now.subtract(const Duration(days: 1)), lastDate: DateTime(now.year + 4), initialDate: date ?? now.add(const Duration(days: 120)));
+              if (d != null) setState(() => date = d);
+            }),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.schedule),
-              label: Text(time.format(context)),
-              onPressed: () async {
-                final t = await showTimePicker(context: context, initialTime: time);
-                if (t != null) setState(() => time = t);
-              },
-            ),
+            child: pickerField(s.t('time'), time.format(context), Icons.schedule_rounded, () async {
+              final t = await showTimePicker(context: context, initialTime: time);
+              if (t != null) setState(() => time = t);
+            }),
           ),
         ]),
         const SizedBox(height: 12),
@@ -128,10 +153,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         leading: step > 0
             ? IconButton(icon: const Icon(Icons.arrow_back), tooltip: s.t('back'), onPressed: () => setState(() => step--))
             : widget.canCancel ? const CloseButton() : null,
-        title: LinearProgressIndicator(value: (step + 1) / 3),
+        centerTitle: true,
+        title: Column(mainAxisSize: MainAxisSize.min, children: [
+          Eyebrow(s.t('stepOf', {'n': step + 1, 'total': 3})),
+          const SizedBox(height: 8),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            for (var i = 0; i < 3; i++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: i == step ? 34 : 18,
+                height: 5,
+                decoration: BoxDecoration(color: i <= step ? Brand.accent : Brand.line, borderRadius: BorderRadius.circular(9)),
+              ),
+          ]),
+        ]),
         actions: [if (!widget.canCancel && step == 0) TextButton(onPressed: () => s.signOut(), child: Text(s.t('signOut')))],
       ),
-      body: SafeArea(child: PageBody(maxWidth: 560, children: [steps[step]])),
+      body: SafeArea(child: PageBody(maxWidth: 560, padding: const EdgeInsets.fromLTRB(20, 16, 20, 32), children: [AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
+                child: KeyedSubtree(key: ValueKey(step), child: steps[step]),
+              )])),
     );
   }
 }

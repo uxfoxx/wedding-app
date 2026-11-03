@@ -58,7 +58,6 @@ class _RsvpsTabState extends State<RsvpsTab> {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final th = Theme.of(context);
     if (dash == null && error != null) {
       return EmptyState(icon: Icons.cloud_off, title: 'Could not load replies', body: error!, action: s.t('retry'), onAction: load);
     }
@@ -67,71 +66,144 @@ class _RsvpsTabState extends State<RsvpsTab> {
     final cols = isWide(context) ? 4 : 2;
     return RefreshIndicator(
       onRefresh: load,
-      child: PageBody(maxWidth: 1000, children: [
+      color: Brand.accent,
+      child: PageBody(maxWidth: 1000, padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
+        SectionHeader(s.t('rsvps'), size: 44, padding: const EdgeInsets.fromLTRB(2, 8, 2, 14)),
         StatGrid(cols: cols, children: [
           StatTile(s.t('invited'), t['invited']),
           StatTile(s.t('sent'), t['sent']),
           StatTile(s.t('opened'), t['opened']),
-          StatTile(s.t('noReply'), (dash!['events'] as List).isEmpty ? 0 : dash!['events'][0]['pending']),
+          StatTile(s.t('noReply'), (dash!['events'] as List).isEmpty ? 0 : dash!['events'][0]['pending'], color: Brand.accent),
         ]),
-        for (final e in dash!['events'] as List)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Semantics(header: true, child: Text(e['name'] as String, style: th.textTheme.titleLarge)),
-                Text(fmtSl(e['starts_at'] as String)),
-                const SizedBox(height: 12),
-                Wrap(spacing: 16, runSpacing: 8, children: [
-                  _Pill(s.t('coming'), e['coming'], Colors.green.shade700),
-                  _Pill(s.t('notComing'), e['declined'], th.colorScheme.error),
-                  _Pill(s.t('maybe'), e['maybe'], Colors.orange.shade800),
-                  _Pill(s.t('noReply'), e['pending'], th.colorScheme.outline),
-                ]),
-                const Divider(height: 24),
-                Text('${s.t('headcount')}: ${e['headcount']}${(e['maybe_headcount'] as int) > 0 ? '  (+${e['maybe_headcount']} maybe)' : ''}', style: th.textTheme.titleMedium),
-                if ((e['meals_vegetarian'] as int) + (e['meals_vegan'] as int) + (e['meals_halal'] as int) > 0)
-                  Text('Meals: ${e['meals_vegetarian']} vegetarian · ${e['meals_vegan']} vegan · ${e['meals_halal']} halal'),
-              ]),
-            ),
-          ),
-        const SizedBox(height: 8),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          if (followUps.isNotEmpty && s.canEditGuests)
-            FilledButton.icon(onPressed: () => widget.onGo('follow_up'), icon: const Icon(Icons.notifications_active_outlined), label: Text('${s.t('remind')} (${followUps.length})')),
-          OutlinedButton.icon(onPressed: export, icon: const Icon(Icons.download), label: Text(s.t('export'))),
-          OutlinedButton.icon(onPressed: exportPdf, icon: const Icon(Icons.picture_as_pdf_outlined), label: Text(s.t('exportPdf'))),
+        for (final e in dash!['events'] as List) _EventReplies(e: e as Map<String, dynamic>),
+        const SizedBox(height: 10),
+        if (followUps.isNotEmpty && s.canEditGuests) ...[
+          FilledButton.icon(onPressed: () => widget.onGo('follow_up'), icon: const Icon(Icons.notifications_active_outlined, size: 20), label: Text('${s.t('remind')} (${followUps.length})')),
+          const SizedBox(height: 10),
+        ],
+        RowGroup(children: [
+          ActionRow(icon: Icons.table_view_outlined, title: s.t('export'), subtitle: 'CSV for Excel or Google Sheets', onTap: export, trailing: const Icon(Icons.download_rounded, color: Brand.ink2)),
+          ActionRow(icon: Icons.picture_as_pdf_outlined, title: s.t('exportPdf'), subtitle: 'For the venue and caterer', onTap: exportPdf, trailing: const Icon(Icons.download_rounded, color: Brand.ink2)),
         ]),
         if (followUps.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text(s.t('followUps'), style: th.textTheme.titleMedium),
-          for (final g in followUps.take(10))
-            ListTile(
-              leading: Icon(g['callFirst'] == true ? Icons.phone : Icons.schedule),
-              title: Text(g['name'] as String),
-              subtitle: Text(g['callFirst'] == true ? s.t('callFirst') : (g['opened_at'] != null ? s.t('opened') : s.t('sent'))),
-              trailing: g['callFirst'] == true && g['phone'] != null ? IconButton(icon: const Icon(Icons.call), onPressed: () => openUrl('tel:${g['phone']}')) : null,
-            ),
+          SectionHeader(s.t('followUps'), size: 26),
+          RowGroup(children: [
+            for (final g in followUps.take(10))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(children: [
+                  Monogram('${g['name']}'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(g['name'] as String, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      const SizedBox(height: 2),
+                      Text(
+                        g['callFirst'] == true ? s.t('callFirst') : (g['opened_at'] != null ? s.t('opened') : s.t('sent')),
+                        style: TextStyle(fontSize: 13.5, color: g['callFirst'] == true ? Brand.accent : Brand.ink2, fontWeight: g['callFirst'] == true ? FontWeight.w700 : FontWeight.w500),
+                      ),
+                    ]),
+                  ),
+                  if (g['phone'] != null)
+                    IconButton.filled(
+                      tooltip: 'Call ${g['name']}',
+                      style: IconButton.styleFrom(backgroundColor: g['callFirst'] == true ? Brand.ink : Brand.sunk, foregroundColor: g['callFirst'] == true ? Brand.paper : Brand.ink),
+                      onPressed: () => openUrl('tel:${g['phone']}'),
+                      icon: const Icon(Icons.call_rounded, size: 20),
+                    ),
+                ]),
+              ),
+          ]),
         ],
         if ((dash!['recentMessages'] as List).isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('Messages from guests', style: th.textTheme.titleMedium),
+          const SectionHeader('Messages from guests', size: 26),
           for (final m in dash!['recentMessages'] as List)
-            Card(child: ListTile(leading: const Icon(Icons.format_quote), title: Text(m['message'] as String), subtitle: Text(m['name'] as String))),
+            Panel(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('“', style: Brand.display(48, color: Brand.accent).copyWith(height: 0.6)),
+                Text(m['message'] as String, style: Brand.display(23).copyWith(height: 1.2)),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Monogram(m['name'] as String, size: 28),
+                  const SizedBox(width: 8),
+                  Text(m['name'] as String, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                ]),
+              ]),
+            ),
         ],
       ]),
     );
   }
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill(this.label, this.n, this.color);
-  final String label;
-  final Object n;
-  final Color color;
+/// One event's replies: a bar split by answer, the counts under it and the headcount.
+class _EventReplies extends StatelessWidget {
+  const _EventReplies({required this.e});
+  final Map<String, dynamic> e;
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('$n', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: color)),
-        Text(label),
-      ]);
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final parts = [
+      (s.t('coming'), e['coming'] as int, Brand.success),
+      (s.t('maybe'), e['maybe'] as int, Brand.gold),
+      (s.t('notComing'), e['declined'] as int, Brand.accent),
+      (s.t('noReply'), e['pending'] as int, Brand.line),
+    ];
+    final meals = (e['meals_vegetarian'] as int) + (e['meals_vegan'] as int) + (e['meals_halal'] as int);
+    return Panel(
+      margin: const EdgeInsets.only(top: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Eyebrow(fmtSl(e['starts_at'] as String)),
+        const SizedBox(height: 6),
+        Semantics(header: true, child: Text(e['name'] as String, style: Brand.display(30))),
+        const SizedBox(height: 18),
+        SplitBar(parts: [for (final p in parts) (p.$2, p.$3)], height: 12),
+        const SizedBox(height: 16),
+        for (var row = 0; row < 2; row++)
+          Padding(
+            padding: EdgeInsets.only(top: row == 0 ? 0 : 14),
+            child: Row(children: [
+              for (final p in parts.skip(row * 2).take(2))
+                Expanded(
+                  child: Semantics(
+                    label: '${p.$1}: ${p.$2}',
+                    excludeSemantics: true,
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                      Text('${p.$2}', style: Brand.display(32)),
+                      const SizedBox(width: 10),
+                      Container(width: 8, height: 8, decoration: BoxDecoration(color: p.$3 == Brand.line ? Brand.ink2 : p.$3, shape: BoxShape.circle)),
+                      const SizedBox(width: 6),
+                      Flexible(child: Text(p.$1, style: const TextStyle(fontSize: 14, color: Brand.ink2, fontWeight: FontWeight.w600))),
+                    ]),
+                  ),
+                ),
+            ]),
+          ),
+        const SizedBox(height: 18),
+        const Divider(),
+        const SizedBox(height: 14),
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('${e['headcount']}', style: Brand.display(44, color: Brand.success)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                '${s.t('headcount')}${(e['maybe_headcount'] as int) > 0 ? '  ·  +${e['maybe_headcount']} ${s.t('maybe').toLowerCase()}' : ''}',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
+            ),
+          ),
+        ]),
+        if (meals > 0) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            if ((e['meals_vegetarian'] as int) > 0) StatusTag('${e['meals_vegetarian']} vegetarian', Brand.success),
+            if ((e['meals_vegan'] as int) > 0) StatusTag('${e['meals_vegan']} vegan', Brand.success),
+            if ((e['meals_halal'] as int) > 0) StatusTag('${e['meals_halal']} halal', Brand.warn),
+          ]),
+        ],
+      ]),
+    );
+  }
 }

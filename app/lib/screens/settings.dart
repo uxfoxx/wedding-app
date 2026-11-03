@@ -70,77 +70,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final th = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(s.t('settings'))),
       body: SafeArea(
-        child: PageBody(children: [
-          Text(s.t('mode'), style: th.textTheme.titleMedium),
-          const SizedBox(height: 8),
+        child: PageBody(padding: const EdgeInsets.fromLTRB(16, 0, 16, 32), children: [
+          SectionHeader(s.t('mode'), size: 24, padding: const EdgeInsets.fromLTRB(2, 8, 2, 10)),
           SegmentedButton<String>(
+            showSelectedIcon: false,
             segments: [ButtonSegment(value: 'easy', label: Text(s.t('easy'))), ButtonSegment(value: 'advanced', label: Text(s.t('advanced')))],
             selected: {s.wedding['mode'] as String? ?? 'easy'},
             onSelectionChanged: s.canEditAll ? (v) => guard(context, () async => s.setSummary(await s.api.patch('/weddings/${s.weddingId}', {'mode': v.first}))) : null,
           ),
-          const Text('Switching never deletes anything.'),
-          const SizedBox(height: 20),
-          Text(s.t('language'), style: th.textTheme.titleMedium),
-          const SizedBox(height: 8),
+          const Padding(padding: EdgeInsets.fromLTRB(4, 8, 4, 0), child: Text('Switching never deletes anything.', style: TextStyle(color: Brand.ink2, fontSize: 14))),
+          SectionHeader(s.t('language'), size: 24, padding: const EdgeInsets.fromLTRB(2, 24, 2, 10)),
           SegmentedButton<String>(
+            showSelectedIcon: false,
             segments: const [ButtonSegment(value: 'en', label: Text('English')), ButtonSegment(value: 'si', label: Text('සිංහල')), ButtonSegment(value: 'ta', label: Text('தமிழ்'))],
             selected: {s.locale},
             onSelectionChanged: (v) => s.setLocale(v.first),
           ),
-          const SizedBox(height: 20),
-          Text(s.t('coOwners'), style: th.textTheme.titleMedium),
-          for (final m in members ?? [])
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.person_outline),
-              title: Text((m['name'] ?? m['email'] ?? m['phone'] ?? '') as String),
-              subtitle: Text({'owner': 'Owner', 'edit_all': 'Can edit everything', 'edit_guests': 'Can edit guests', 'view': 'Can view'}[m['role']] ?? ''),
-              trailing: s.role == 'owner' && m['role'] != 'owner'
-                  ? IconButton(
+          SectionHeader(s.t('coOwners'), size: 24, padding: const EdgeInsets.fromLTRB(2, 24, 2, 10)),
+          RowGroup(children: [
+            for (final m in members ?? [])
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(children: [
+                  Monogram((m['name'] ?? m['email'] ?? m['phone'] ?? '?') as String),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text((m['name'] ?? m['email'] ?? m['phone'] ?? '') as String, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text({'owner': 'Owner', 'edit_all': 'Can edit everything', 'edit_guests': 'Can edit guests', 'view': 'Can view'}[m['role']] ?? '', style: const TextStyle(color: Brand.ink2, fontSize: 13.5)),
+                    ]),
+                  ),
+                  if (s.role == 'owner' && m['role'] != 'owner')
+                    IconButton(
                       tooltip: 'Remove',
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Icons.close_rounded, color: Brand.ink2),
                       onPressed: () async {
                         await guard(context, () => s.api.delete('/weddings/${s.weddingId}/members/${m['id']}'));
                         await load();
                       },
-                    )
-                  : null,
+                    ),
+                ]),
+              ),
+            if (s.role == 'owner') ActionRow(icon: Icons.group_add_outlined, tint: Brand.accent, title: s.t('inviteHelper'), onTap: inviteHelper, trailing: const Icon(Icons.add_rounded, color: Brand.ink2)),
+          ]),
+          const SizedBox(height: 18),
+          RowGroup(children: [
+            ActionRow(
+              icon: Icons.card_giftcard_rounded,
+              tint: Brand.gold,
+              title: 'Invite friends',
+              subtitle: 'They get a discount; you get credit towards your pass',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReferralScreen())),
             ),
-          if (s.role == 'owner') OutlinedButton.icon(onPressed: inviteHelper, icon: const Icon(Icons.group_add_outlined), label: Text(s.t('inviteHelper'))),
-          const Divider(height: 40),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.card_giftcard),
-            title: const Text('Invite friends'),
-            subtitle: const Text('They get a discount; you get credit towards your pass'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReferralScreen())),
-          ),
-          if (s.role == 'owner' && s.wedding['published_at'] != null)
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Share our wedding in "Real weddings"'),
-              subtitle: const Text('Your invitation design and the vendors you booked, shown to other couples after our team approves it.'),
-              value: (s.wedding['showcase'] ?? 'off') != 'off',
-              onChanged: (v) async {
-                await guard(context, () => s.api.post('/weddings/${s.weddingId}/showcase', {'share': v}));
-                await s.refresh();
+            if (s.role == 'owner' && s.wedding['published_at'] != null)
+              SwitchListTile(
+                title: const Text('Share our wedding in "Real weddings"'),
+                subtitle: const Text('Your invitation design and the vendors you booked, shown to other couples after our team approves it.'),
+                value: (s.wedding['showcase'] ?? 'off') != 'off',
+                onChanged: (v) async {
+                  await guard(context, () => s.api.post('/weddings/${s.weddingId}/showcase', {'share': v}));
+                  await s.refresh();
+                },
+              ),
+          ]),
+          SectionHeader(s.t('account'), size: 24, padding: const EdgeInsets.fromLTRB(2, 24, 2, 10)),
+          RowGroup(children: [
+            ActionRow(
+              icon: Icons.logout_rounded,
+              title: s.t('signOut'),
+              subtitle: s.user?['email'] as String? ?? s.user?['phone'] as String? ?? '',
+              onTap: () async {
+                await s.signOut();
+                if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
               },
             ),
-          const Divider(height: 40),
-          ListTile(contentPadding: EdgeInsets.zero, title: Text(s.user?['email'] as String? ?? s.user?['phone'] as String? ?? '')),
-          OutlinedButton(onPressed: () async {
-            await s.signOut();
-            if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
-          }, child: Text(s.t('signOut'))),
-          const SizedBox(height: 8),
-          TextButton(onPressed: deleteAccount, style: TextButton.styleFrom(foregroundColor: th.colorScheme.error), child: Text(s.t('deleteAccount'))),
-          const SizedBox(height: 8),
-          Text('Guests\' phone numbers are deleted automatically 12 months after your wedding. Your album and messages stay as a keepsake.', style: th.textTheme.bodySmall),
+            ActionRow(icon: Icons.delete_outline_rounded, tint: Brand.accent, title: s.t('deleteAccount'), onTap: deleteAccount),
+          ]),
+          const SizedBox(height: 14),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text('Guests\' phone numbers are deleted automatically 12 months after your wedding. Your album and messages stay as a keepsake.', style: TextStyle(color: Brand.ink2, fontSize: 13.5)),
+          ),
         ]),
       ),
     );
@@ -210,10 +223,10 @@ class _ReferralScreenState extends State<ReferralScreen> {
               const SizedBox(height: 8),
               FilledButton.icon(onPressed: () => openUrl('https://wa.me/?text=${Uri.encodeComponent(r!['message'] as String)}'), icon: const Icon(Icons.chat), label: const Text('Share on WhatsApp')),
               const SizedBox(height: 20),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                SizedBox(width: 170, child: StatTile('Friends joined', r!['referred'])),
-                SizedBox(width: 170, child: StatTile('Bought the pass', r!['referred_paid'])),
-                SizedBox(width: 170, child: StatTile('Your credit', 'LKR ${r!['credits_lkr']}')),
+              StatGrid(cols: isWide(context) ? 4 : 2, children: [
+                StatTile('Friends joined', r!['referred']),
+                StatTile('Bought the pass', r!['referred_paid']),
+                StatTile('Your credit', 'LKR ${r!['credits_lkr']}'),
               ]),
             ]),
     );

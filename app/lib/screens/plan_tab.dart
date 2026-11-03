@@ -20,35 +20,86 @@ class PlanTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final th = Theme.of(context);
     void open(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-    Widget tile(IconData icon, String title, String sub, Widget screen, {bool paid = false}) => Card(
-          child: ListTile(
-            leading: Icon(icon, color: th.colorScheme.primary),
-            title: Text(title),
-            subtitle: Text(sub),
-            trailing: paid && !s.isPaid ? const Icon(Icons.lock_outline) : const Icon(Icons.chevron_right),
-            onTap: () => paid && !s.isPaid ? open(const UpgradeScreen()) : open(screen),
-          ),
+    Widget tile(IconData icon, String title, String sub, Widget screen, {bool paid = false, Color? tint}) => _PlanTile(
+          icon: icon,
+          title: title,
+          subtitle: sub,
+          tint: tint,
+          locked: paid && !s.isPaid,
+          onTap: () => paid && !s.isPaid ? open(const UpgradeScreen()) : open(screen),
         );
-    return PageBody(maxWidth: 900, children: [
+    final day = [
+      tile(Icons.event_rounded, s.t('events'), 'Ceremonies, times, venues', const EventsScreen(), tint: Brand.accent),
+      tile(Icons.table_restaurant_outlined, 'Seating', 'Tables and Find your seat', const SeatingScreen(), paid: true),
+      tile(Icons.celebration_outlined, 'Guest experience', 'Updates, menu, photos, songs', const ExperienceScreen(), tint: Brand.gold),
+      tile(Icons.schedule_rounded, 'Run sheet', 'The day, minute by minute', const RunSheetScreen(), paid: true),
+      tile(Icons.storefront_outlined, 'Vendors', 'Suggested for your date', const VendorsScreen(), tint: Brand.success),
+      tile(Icons.print_outlined, 'Reports', 'Print or save as PDF', const ReportsScreen()),
+    ];
+    final planning = [
+      tile(Icons.checklist_rounded, 'Checklist', 'By months before the day', const TasksScreen(kind: 'checklist'), paid: true),
+      tile(Icons.task_alt_rounded, 'Tasks', 'Due dates and owners', const TasksScreen(kind: 'task')),
+      tile(Icons.account_balance_wallet_outlined, 'Budget', 'Costs, payments, what is due', const BudgetScreen(), paid: true, tint: Brand.accent),
+      if (s.isPlanner && s.wedding['planner_id'] != null) tile(Icons.sticky_note_2_outlined, 'Client notes', 'Private to your team', const ClientNotesScreen()),
+    ];
+    final cols = isWide(context) ? 3 : 2;
+    Widget grid(List<Widget> tiles) => Column(children: [
+          for (var i = 0; i < tiles.length; i += cols)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, spacing: 10, children: [
+                  for (var j = i; j < i + cols; j++) Expanded(child: j < tiles.length ? tiles[j] : const SizedBox()),
+                ]),
+              ),
+            ),
+        ]);
+    return PageBody(maxWidth: 900, padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
       const ReadinessCard(),
-      const SizedBox(height: 8),
-      Text('The day', style: th.textTheme.titleMedium),
-      tile(Icons.event_outlined, s.t('events'), 'Ceremonies, times, venues, programme', const EventsScreen()),
-      tile(Icons.table_restaurant_outlined, 'Seating', 'Tables, suggested plan, Find your seat', const SeatingScreen(), paid: true),
-      tile(Icons.celebration_outlined, 'Guest experience', 'Live updates, menu, photos, guestbook, songs', const ExperienceScreen()),
-      tile(Icons.schedule_outlined, 'Run sheet', 'Wedding-day timeline and who does what', const RunSheetScreen(), paid: true),
-      tile(Icons.storefront_outlined, 'Vendors', 'Photographers, venues, decorators: suggested for your date and budget', const VendorsScreen()),
-      const SizedBox(height: 8),
-      Text('Planning', style: th.textTheme.titleMedium),
-      tile(Icons.checklist, 'Checklist', 'Suggested tasks by months before the wedding', const TasksScreen(kind: 'checklist'), paid: true),
-      tile(Icons.task_alt, 'Tasks', 'To-dos with due dates and owners', const TasksScreen(kind: 'task')),
-      tile(Icons.payments_outlined, 'Budget', 'Estimates, payments and what is due', const BudgetScreen(), paid: true),
-      tile(Icons.print_outlined, 'Reports', 'Guest list, seating, run sheet, QR board: print or save as PDF', const ReportsScreen()),
-      if (s.isPlanner && s.wedding['planner_id'] != null) tile(Icons.sticky_note_2_outlined, 'Client notes and team', 'Private to your planner team', const ClientNotesScreen()),
+      SectionHeader(s.t('theDay'), eyebrow: '01'),
+      grid(day),
+      SectionHeader(s.t('planning'), eyebrow: '02', padding: const EdgeInsets.fromLTRB(2, 18, 2, 12)),
+      grid(planning),
     ]);
   }
+}
+
+/// A square-ish tile in the Plan grid: icon, name, one line of detail, a lock when it needs the pass.
+class _PlanTile extends StatelessWidget {
+  const _PlanTile({required this.icon, required this.title, required this.subtitle, required this.onTap, this.tint, this.locked = false});
+  final IconData icon;
+  final String title, subtitle;
+  final VoidCallback onTap;
+  final Color? tint;
+  final bool locked;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: '$title. $subtitle${locked ? '. Wedding Pass' : ''}',
+        excludeSemantics: true,
+        child: Panel(
+          margin: EdgeInsets.zero,
+          padding: const EdgeInsets.all(16),
+          onTap: onTap,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              IconTile(icon, tint: tint, size: 42),
+              const Spacer(),
+              if (locked)
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(color: Brand.accentSoft, shape: BoxShape.circle),
+                  child: const Icon(Icons.lock_rounded, size: 13, color: Brand.accent),
+                ),
+            ]),
+            const SizedBox(height: 22),
+            Text(title, style: Brand.display(24)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(fontSize: 13.5, color: Brand.ink2, height: 1.35)),
+          ]),
+        ),
+      );
 }
 
 /// Events list (was the whole Plan tab in Phase 1).
@@ -60,24 +111,54 @@ class EventsScreen extends StatelessWidget {
     final events = (s.summary?['events'] as List?) ?? [];
     return Scaffold(
       appBar: AppBar(title: Text(s.t('events'))),
-      body: PageBody(children: [
-        for (final e in events)
-          Card(
-            child: ListTile(
-              title: Text((e['title'] ?? eventKinds[e['kind']]) as String),
-              subtitle: Text([fmtSl(e['starts_at'] as String), if (e['venue'] != null) e['venue'], if (e['nekath'] != null) e['nekath']].join('\n')),
-              isThreeLine: true,
-              trailing: const Icon(Icons.edit_outlined),
-              onTap: s.canEditAll ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EventEditor(event: e as Map<String, dynamic>))) : null,
-            ),
-          ),
-        const SizedBox(height: 8),
+      body: PageBody(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
+        for (final e in events) _EventCard(e: e as Map<String, dynamic>, onTap: s.canEditAll ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EventEditor(event: e))) : null),
+        const SizedBox(height: 12),
         if (s.canEditAll)
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EventEditor())),
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_rounded),
             label: Text(s.t('addEvent')),
           ),
+      ]),
+    );
+  }
+}
+
+/// An event as a date block (day and month) beside its name, time and place.
+class _EventCard extends StatelessWidget {
+  const _EventCard({required this.e, this.onTap});
+  final Map<String, dynamic> e;
+  final VoidCallback? onTap;
+  static const _mon = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  @override
+  Widget build(BuildContext context) {
+    final d = isoToSl(e['starts_at'] as String);
+    return Panel(
+      onTap: onTap,
+      padding: const EdgeInsets.all(14),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 66,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(color: Brand.ink, borderRadius: BorderRadius.circular(16)),
+          child: Column(children: [
+            Text('${d.day}', style: Brand.display(32, color: Brand.paper)),
+            const SizedBox(height: 2),
+            Text(_mon[d.month - 1], style: const TextStyle(color: Color(0xFFE9B97A), fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+          ]),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text((e['title'] ?? eventKinds[e['kind']]) as String, style: Brand.display(25)),
+            const SizedBox(height: 4),
+            Text(fmtSl(e['starts_at'] as String), style: const TextStyle(color: Brand.ink2, fontSize: 14)),
+            if (e['venue'] != null) Text('${e['venue']}', style: const TextStyle(color: Brand.ink2, fontSize: 14)),
+            if (e['nekath'] != null) ...[const SizedBox(height: 6), StatusTag('${e['nekath']}', Brand.accent)],
+          ]),
+        ),
+        if (onTap != null) const Icon(Icons.edit_outlined, size: 20, color: Brand.ink2),
       ]),
     );
   }

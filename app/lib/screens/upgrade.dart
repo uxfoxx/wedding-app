@@ -104,32 +104,74 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
     final paid = s.isPaid;
     final rows = const [
       ('Guests', 'Up to 50', 'Unlimited'),
-      ('Events', '1', 'Poruwa, reception, homecoming…'),
+      ('Events', '1', 'All your events'),
       ('Designs', '5', 'All, with opening animations'),
       ('RSVP with meals & plus-ones', 'Yes', 'Yes'),
       ('"Made with" footer', 'Shown', 'Removed'),
       ('Export for venue & caterer', '—', 'Excel / PDF'),
       ('Access', 'Until the wedding', '12 months after, then keepsake'),
     ];
+    final price = useStore ? null : (quote?['total'] ?? prices?['passWebLkr']);
+    Widget cell(String t, {bool pass = false}) => Text(
+          t,
+          style: TextStyle(fontSize: 14, height: 1.3, fontWeight: pass ? FontWeight.w700 : FontWeight.w500, color: pass ? Brand.ink : Brand.ink2),
+        );
     return Scaffold(
       appBar: AppBar(title: Text(s.t('pass'))),
       body: SafeArea(
-        child: PageBody(maxWidth: 640, children: [
-          Text(paid ? 'You have the Wedding Pass' : s.t('upgrade'), style: th.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text('One payment for this wedding, all its events. No subscription.', style: th.textTheme.bodyLarge),
-          const SizedBox(height: 16),
-          Table(
-            columnWidths: const {0: FlexColumnWidth(1.4), 1: FlexColumnWidth(1), 2: FlexColumnWidth(1.4)},
-            children: [
-              TableRow(children: [const SizedBox(), Text(s.t('free'), style: th.textTheme.titleSmall), Text(s.t('pass'), style: th.textTheme.titleSmall)]),
-              for (final r in rows)
-                TableRow(children: [
-                  Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(r.$1)),
-                  Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(r.$2)),
-                  Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(r.$3, style: const TextStyle(fontWeight: FontWeight.w600))),
+        child: PageBody(maxWidth: 640, padding: const EdgeInsets.fromLTRB(16, 0, 16, 32), children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 26, 24, 26),
+            decoration: BoxDecoration(color: Brand.ink, borderRadius: BorderRadius.circular(30)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.auto_awesome_rounded, color: Color(0xFFE9B97A), size: 28),
+              const SizedBox(height: 18),
+              Text(paid ? 'You have the Wedding Pass' : s.t('upgrade'), style: Brand.display(42, color: Brand.paper)),
+              const SizedBox(height: 10),
+              Text('One payment for this wedding, all its events. No subscription.', style: TextStyle(color: Brand.paper.withValues(alpha: 0.7), fontSize: 16)),
+              if (!paid && price != null) ...[
+                const SizedBox(height: 22),
+                const Flourish(color: Color(0xFFE9B97A), width: 80),
+                const SizedBox(height: 18),
+                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  const Padding(padding: EdgeInsets.only(bottom: 10), child: Text('LKR ', style: TextStyle(color: Color(0xFFE9B97A), fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 1))),
+                  Text('$price', style: Brand.display(58, color: Brand.paper)),
                 ]),
-            ],
+                Text('once, for this wedding', style: TextStyle(color: Brand.paper.withValues(alpha: 0.6), fontSize: 14)),
+              ],
+            ]),
+          ),
+          const SizedBox(height: 12),
+          Panel(
+            padding: EdgeInsets.zero,
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                child: Row(children: [
+                  const Expanded(flex: 13, child: SizedBox()),
+                  Expanded(flex: 10, child: Eyebrow(s.t('free'))),
+                  Expanded(flex: 13, child: Eyebrow(s.t('pass'), color: Brand.accent)),
+                ]),
+              ),
+              for (final r in rows) ...[
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(flex: 13, child: Text(r.$1, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, height: 1.3))),
+                    const SizedBox(width: 8),
+                    Expanded(flex: 10, child: cell(r.$2)),
+                    Expanded(
+                      flex: 13,
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Padding(padding: EdgeInsets.only(top: 1, right: 6), child: Icon(Icons.check_rounded, size: 16, color: Brand.accent)),
+                        Expanded(child: cell(r.$3, pass: true)),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ],
+            ]),
           ),
           const SizedBox(height: 20),
           if (!paid && billing != null) ...[
@@ -181,7 +223,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
             const SizedBox(height: 4),
             Text('Full refund within 7 days if no invitation has been sent. If the wedding is postponed, we move your pass to the new date.', style: th.textTheme.bodySmall),
           ],
-          const Divider(height: 40),
+          const SizedBox(height: 12),
           const _DesignForMe(),
         ]),
       ),
@@ -217,10 +259,9 @@ class _DesignForMeState extends State<_DesignForMe> {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final th = Theme.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Semantics(header: true, child: Text('Design it for me', style: th.textTheme.titleLarge)),
-      const Text('Tell us what you like and a designer will build your invitation. From LKR 5,000.'),
+      const SectionHeader('Design it for me', eyebrow: 'From LKR 5,000'),
+      const Text('Tell us what you like and a designer will build your invitation.', style: TextStyle(color: Brand.ink2)),
       const SizedBox(height: 12),
       for (final j in jobs ?? [])
         Card(child: ListTile(title: Text('Request: ${j['status']}'), subtitle: Text('${(j['messages'] as List).isNotEmpty ? (j['messages'] as List).last['text'] : j['brief']['style'] ?? ''}'))),

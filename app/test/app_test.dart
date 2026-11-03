@@ -128,7 +128,7 @@ void main() {
     // Easy Mode home: one clear next step, four tabs, no Plan tab.
     expect(server.calls, contains('POST /api/weddings'));
     expect(find.text('Choose an invitation design'), findsOneWidget);
-    expect(find.text('Nimal & Kumari'), findsOneWidget);
-    expect(find.byType(NavigationDestination), findsNWidgets(4));
+    expect(find.text('Nimal & Kumari'), findsWidgets);
+    expect(tester.widget<DockNav>(find.byType(DockNav)).items, hasLength(4));
   });
 }
