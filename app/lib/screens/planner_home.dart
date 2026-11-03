@@ -111,7 +111,7 @@ class _DashboardState extends State<_Dashboard> {
         if (p['approved'] != true)
           Card(color: th.colorScheme.tertiaryContainer, child: const ListTile(leading: Icon(Icons.hourglass_top), title: Text('We are checking your business'), subtitle: Text('You can run one client wedding until we approve your account (usually within a day).'))),
         Row(children: [
-          Expanded(child: Text('${list.length} client weddings', style: th.textTheme.titleLarge)),
+          Expanded(child: Semantics(header: true, child: Text('${list.length} client weddings', style: th.textTheme.titleLarge))),
           FilledButton.icon(key: const Key('newClientWedding'), onPressed: newWedding, icon: const Icon(Icons.add), label: const Text('New wedding')),
         ]),
         const SizedBox(height: 8),
@@ -368,7 +368,7 @@ class _TeamState extends State<_Team> {
     if (data == null) return const Center(child: CircularProgressIndicator());
     final limit = data!['limit'];
     return PageBody(children: [
-      Text('Team', style: Theme.of(context).textTheme.titleLarge),
+      Semantics(header: true, child: Text('Team', style: Theme.of(context).textTheme.titleLarge)),
       Text(limit == null || (limit is num && limit > 1000) ? 'Unlimited team members (Studio).' : 'Your plan includes up to $limit team member${limit == 1 ? '' : 's'}.'),
       const SizedBox(height: 8),
       for (final m in data!['team'] as List)
@@ -428,7 +428,7 @@ class _BusinessState extends State<_Business> {
     final isOwner = info['role'] == 'owner';
     final plan = p['plan'] as String? ?? 'free';
     return PageBody(children: [
-      Text('Business profile', style: th.textTheme.titleLarge),
+      Semantics(header: true, child: Text('Business profile', style: th.textTheme.titleLarge)),
       const SizedBox(height: 8),
       TextField(controller: name, enabled: isOwner, decoration: const InputDecoration(labelText: 'Business name')),
       const SizedBox(height: 12),
@@ -451,7 +451,7 @@ class _BusinessState extends State<_Business> {
           ),
         ),
       const Divider(height: 32),
-      Text('Plan', style: th.textTheme.titleLarge),
+      Semantics(header: true, child: Text('Plan', style: th.textTheme.titleLarge)),
       Text(switch (plan) {
         'studio10' => 'Studio 10: up to 10 new weddings a month${info['studioActive'] == true ? '' : ' (expired)'}',
         'studio_unlimited' => 'Studio Unlimited${info['studioActive'] == true ? '' : ' (expired)'}',
@@ -460,7 +460,7 @@ class _BusinessState extends State<_Business> {
       const SizedBox(height: 4),
       const Text('Studio (10 or unlimited weddings a month, unlimited team, your logo) is billed monthly. Contact us to start it.'),
       const Divider(height: 32),
-      Text('Reusable templates', style: th.textTheme.titleLarge),
+      Semantics(header: true, child: Text('Reusable templates', style: th.textTheme.titleLarge)),
       const Text('Save a checklist, run sheet or budget from any wedding (Plan tab → Save as template), then apply it to new weddings.'),
       for (final t in templates ?? [])
         ListTile(

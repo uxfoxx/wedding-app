@@ -285,11 +285,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        Text('Packages', style: th.textTheme.titleLarge),
+        Semantics(header: true, child: Text('Packages', style: th.textTheme.titleLarge)),
         for (final p in data!['packages'] as List)
           Card(child: ListTile(title: Text(p['name'] as String), subtitle: Text([if (p['includes'] != null) p['includes'], if (p['addons'] != null) 'Add-ons: ${p['addons']}'].join('\n')), trailing: Text('from ${lkr(num.parse('${p['starting_lkr']}'))}${p['negotiable'] == true ? '\nnegotiable' : ''}', textAlign: TextAlign.right))),
         const SizedBox(height: 16),
-        Text('Reviews', style: th.textTheme.titleLarge),
+        Semantics(header: true, child: Text('Reviews', style: th.textTheme.titleLarge)),
         const Text('Only from couples who planned their wedding in the app and contacted this vendor.'),
         for (final r in data!['reviews'] as List)
           Card(child: ListTile(title: Text('★' * (r['rating'] as int)), subtitle: Text([r['body'] ?? '', if (r['reply'] != null) 'Reply: ${r['reply']}'].join('\n')))),

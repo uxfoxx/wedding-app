@@ -112,6 +112,32 @@ class StatTile extends StatelessWidget {
       );
 }
 
+/// Shown while the app is working from the copy saved on this phone.
+class OfflineBanner extends StatelessWidget {
+  const OfflineBanner({super.key, required this.at, required this.onRetry});
+  final DateTime at;
+  final VoidCallback onRetry;
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final th = Theme.of(context);
+    final local = at.toLocal();
+    final time = '${local.day} ${_months[local.month - 1]}, ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    return Material(
+      color: th.colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Row(children: [
+          const Icon(Icons.cloud_off_outlined),
+          const SizedBox(width: 12),
+          Expanded(child: Semantics(liveRegion: true, child: Text(s.t('offlineCopy', {'time': time})))),
+          TextButton(onPressed: onRetry, child: Text(s.t('retry'))),
+        ]),
+      ),
+    );
+  }
+}
+
 void toast(BuildContext context, String msg) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()

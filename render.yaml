@@ -32,6 +32,8 @@ services:
         generateValue: true
       - key: PREVIEW_SECRET
         generateValue: true
+      - key: TOTP_KEY                # encrypts staff authenticator secrets; keep it stable
+        generateValue: true
       - key: ADMIN_EMAILS
         sync: false
       - key: EXPOSE_DEV_CODES        # set to true only until an email provider is connected

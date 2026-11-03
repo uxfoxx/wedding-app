@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../state.dart';
 
 import '../ui.dart';
 import 'guest_editor.dart';
@@ -30,6 +35,8 @@ class GuestsTabState extends State<GuestsTab> {
   String query = '';
   String? loadedFor;
   String? error;
+  /// When the list shown is the copy saved on this phone (the server couldn't be reached).
+  DateTime? offlineAt;
 
   @override
   void didChangeDependencies() {
@@ -45,12 +52,22 @@ class GuestsTabState extends State<GuestsTab> {
 
   Future<void> load() async {
     final s = AppScope.read(context);
+    final id = s.weddingId!;
+    final prefs = await SharedPreferences.getInstance();
     try {
-      final r = await s.api.get('/weddings/${s.weddingId}/guests');
-      final d = await s.api.get('/weddings/${s.weddingId}/guests/duplicates');
-      if (mounted) setState(() { guests = r['guests'] as List<dynamic>; dupPairs = d['pairs'] as List<dynamic>; error = null; });
+      final r = await s.api.get('/weddings/$id/guests');
+      final d = await s.api.get('/weddings/$id/guests/duplicates');
+      await prefs.setString(AppState.offlineGuestsKey(id), jsonEncode({'at': DateTime.now().toIso8601String(), 'guests': r['guests']}));
+      if (mounted) setState(() { guests = r['guests'] as List<dynamic>; dupPairs = d['pairs'] as List<dynamic>; error = null; offlineAt = null; });
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      // No connection: fall back to the last list saved on this phone, if there is one.
+      final raw = prefs.getString(AppState.offlineGuestsKey(id));
+      if (raw != null) {
+        final c = jsonDecode(raw) as Map<String, dynamic>;
+        if (mounted) setState(() { guests = c['guests'] as List<dynamic>; dupPairs = []; error = null; offlineAt = DateTime.parse(c['at'] as String); });
+      } else if (mounted) {
+        setState(() => error = '$e');
+      }
     }
   }
 
@@ -106,11 +123,14 @@ class GuestsTabState extends State<GuestsTab> {
     return RefreshIndicator(
       onRefresh: load,
       child: PageBody(maxWidth: 1000, children: [
+        // The whole app shows its own banner when it started offline; this one covers losing the
+        // connection later, on this tab only.
+        if (offlineAt != null && !s.offline) ...[OfflineBanner(at: offlineAt!, onRetry: load), const SizedBox(height: 8)],
         Row(children: [
           Expanded(child: Text('${guests!.length} ${s.t('guests').toLowerCase()} · $seats ${s.t('seats').toLowerCase()}${limit != null ? ' (free plan: up to $limit)' : ''}', style: th.textTheme.titleMedium)),
         ]),
         const SizedBox(height: 8),
-        if (s.canEditGuests)
+        if (s.canEditGuests && offlineAt == null)
           Wrap(spacing: 8, runSpacing: 8, children: [
             FilledButton.icon(key: const Key('sendInvites'), onPressed: () => widget.onGo('send'), icon: const Icon(Icons.send), label: Text(s.t('sendInvites'))),
             OutlinedButton.icon(key: const Key('addGuest'), onPressed: () => edit(), icon: const Icon(Icons.person_add_alt), label: Text(s.t('addGuest'))),

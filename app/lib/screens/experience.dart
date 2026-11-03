@@ -65,7 +65,7 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
         onRefresh: load,
         child: PageBody(maxWidth: 900, children: [
           if (!published) Card(color: th.colorScheme.tertiaryContainer, child: const ListTile(leading: Icon(Icons.info_outline), title: Text('Publish your invitation first'), subtitle: Text('These pages go live with your invitation.'))),
-          Text('Live updates', style: th.textTheme.titleLarge),
+          Semantics(header: true, child: Text('Live updates', style: th.textTheme.titleLarge)),
           const Text('A change of time, venue, dress code or parking. Guests see it at the top of their invitation.'),
           const SizedBox(height: 8),
           if (s.canEditAll) ...[
@@ -99,7 +99,7 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
             onTap: () => open(MenuEditor(items: (data!['menu'] as List).cast<Map<String, dynamic>>())),
           ),
           const Divider(height: 32),
-          Text('Photos, guestbook and songs', style: th.textTheme.titleLarge),
+          Semantics(header: true, child: Text('Photos, guestbook and songs', style: th.textTheme.titleLarge)),
           if (!s.isPaid)
             Card(child: ListTile(leading: const Icon(Icons.lock_outline), title: const Text('Part of the Wedding Pass'), subtitle: const Text('Guests upload photos by QR code, leave voice notes and request songs.'), onTap: () => open(const UpgradeScreen())))
           else ...[
@@ -121,7 +121,7 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
             Card(child: ListTile(leading: const Icon(Icons.queue_music), title: Text('Song requests (${counts['songs']} waiting)'), trailing: const Icon(Icons.chevron_right), onTap: () => open(const SongsScreen()))),
           ],
           const Divider(height: 32),
-          Text('Pages for the venue', style: th.textTheme.titleLarge),
+          Semantics(header: true, child: Text('Pages for the venue', style: th.textTheme.titleLarge)),
           for (final l in [
             ('share', Icons.qr_code_2, 'Share photos & wishes', 'Print its QR code on table cards'),
             ('wall', Icons.tv, 'Live photo wall', 'Open on the screen or projector at the reception'),
@@ -139,7 +139,7 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
               ]),
             ),
           const Divider(height: 32),
-          Text('After the wedding', style: th.textTheme.titleLarge),
+          Semantics(header: true, child: Text('After the wedding', style: th.textTheme.titleLarge)),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.favorite_outline),

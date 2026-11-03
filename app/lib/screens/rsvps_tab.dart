@@ -48,6 +48,13 @@ class _RsvpsTabState extends State<RsvpsTab> {
     await FilePicker.saveFile(fileName: 'guest-list.csv', bytes: Uint8List.fromList(utf8.encode(csv)), mimeType: 'text/csv');
   }
 
+  // The printable guest list and headcount; the browser's share or print menu saves it as a PDF.
+  Future<void> exportPdf() async {
+    final s = AppScope.read(context);
+    final r = await guard(context, () => s.api.post('/weddings/${s.weddingId}/report-link', {'kind': 'guests'}), onUpgrade: () => widget.onGo('upgrade'));
+    if (r != null) await openUrl(r['url'] as String, inApp: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
@@ -72,7 +79,7 @@ class _RsvpsTabState extends State<RsvpsTab> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(e['name'] as String, style: th.textTheme.titleLarge),
+                Semantics(header: true, child: Text(e['name'] as String, style: th.textTheme.titleLarge)),
                 Text(fmtSl(e['starts_at'] as String)),
                 const SizedBox(height: 12),
                 Wrap(spacing: 16, runSpacing: 8, children: [
@@ -93,6 +100,7 @@ class _RsvpsTabState extends State<RsvpsTab> {
           if (followUps.isNotEmpty && s.canEditGuests)
             FilledButton.icon(onPressed: () => widget.onGo('follow_up'), icon: const Icon(Icons.notifications_active_outlined), label: Text('${s.t('remind')} (${followUps.length})')),
           OutlinedButton.icon(onPressed: export, icon: const Icon(Icons.download), label: Text(s.t('export'))),
+          OutlinedButton.icon(onPressed: exportPdf, icon: const Icon(Icons.picture_as_pdf_outlined), label: Text(s.t('exportPdf'))),
         ]),
         if (followUps.isNotEmpty) ...[
           const SizedBox(height: 16),

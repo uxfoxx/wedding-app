@@ -34,9 +34,23 @@ export async function requireUser(req: FastifyRequest): Promise<AuthUser> {
   return u;
 }
 
+export const STAFF_MFA_HOURS = 12;
+
+/** Staff two-factor state for this request's session. */
+export async function staffMfa(req: FastifyRequest): Promise<{ required: boolean; enabled: boolean; verified: boolean }> {
+  const r = await one(`SELECT u.totp_enabled_at IS NOT NULL AS enabled, coalesce(s.mfa_at > now() - interval '${STAFF_MFA_HOURS} hours', false) AS verified
+    FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1`, [sha256(req.headers.authorization!.slice(7))]);
+  return { required: config.staffMfa, enabled: !!r?.enabled, verified: !!r?.verified };
+}
+
 export async function requireStaff(req: FastifyRequest, roles: string[] = ['admin', 'support']): Promise<AuthUser> {
   const u = await requireUser(req);
   if (!u.staff_role || !roles.includes(u.staff_role)) throw new HttpError(403, 'staff_only');
+  if (config.staffMfa) {
+    const m = await staffMfa(req);
+    if (!m.enabled) throw new HttpError(403, 'mfa_setup_required', 'Staff accounts need an authenticator app. Set it up to continue.');
+    if (!m.verified) throw new HttpError(403, 'mfa_required', 'Enter the code from your authenticator app.');
+  }
   return u;
 }
 

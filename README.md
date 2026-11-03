@@ -68,3 +68,7 @@ cd app && flutter analyze && flutter test
 | `ADMIN_EMAILS` | Emails that get the admin role |
 | `PASS_WEB_LKR`, `PASS_APP_LKR`, `FREE_GUEST_LIMIT` | Prices and free-plan limit |
 | `EXPOSE_DEV_CODES` | Must be `false` in production (default when `NODE_ENV=production`) |
+| `STAFF_MFA` | `required` (default in production) makes staff use an authenticator app; `off` elsewhere |
+| `TOTP_KEY` | Encrypts staff authenticator secrets (defaults to one derived from `PREVIEW_SECRET`; changing it means staff set up again) |
+| `VENDOR_PROMOTIONS` | `on` lets vendors buy featured placement and the verified badge in the web panel (default `off`) |
+| `VENDOR_FEATURED_MONTH_LKR`, `VENDOR_VERIFIED_YEAR_LKR` | Vendor prices (default 3,000 a month and 6,000 a year) |

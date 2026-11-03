@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
@@ -307,7 +308,7 @@ class _ProfileState extends State<_Profile> {
       onRefresh: reload,
       child: PageBody(maxWidth: 1000, children: [
         Row(children: [
-          Expanded(child: Text('${v['business_name']} · ${v['district']}', style: th.textTheme.titleLarge)),
+          Expanded(child: Semantics(header: true, child: Text('${v['business_name']} · ${v['district']}', style: th.textTheme.titleLarge))),
           if (v['status'] == 'approved' && data['public_url'] != null)
             TextButton.icon(onPressed: () => copy(context, data['public_url'] as String, 'Profile link copied'), icon: const Icon(Icons.share), label: const Text('Share profile')),
         ]),
@@ -434,7 +435,7 @@ class _AvailabilityState extends State<_Availability> {
     final s = AppScope.of(context);
     if (blocked == null) return const Center(child: CircularProgressIndicator());
     return PageBody(children: [
-      Text('Booked dates', style: Theme.of(context).textTheme.titleLarge),
+      Semantics(header: true, child: Text('Booked dates', style: Theme.of(context).textTheme.titleLarge)),
       const Text('Couples searching for these dates won\'t see you, so you only get enquiries you can take.'),
       const SizedBox(height: 12),
       FilledButton.icon(
@@ -520,8 +521,11 @@ class _StatsState extends State<_Stats> {
               ),
           ]),
         ),
+        // Sold only in the web panel: in the iOS/Android apps a paid listing would have to be an
+        // in-app purchase (App Store 3.1.1), and the apps may not point to a web checkout either.
+        if (kIsWeb) const _Promotions(),
         const Divider(height: 32),
-        Text('Reviews', style: th.textTheme.titleLarge),
+        Semantics(header: true, child: Text('Reviews', style: th.textTheme.titleLarge)),
         if (reviews.isEmpty) const Text('Reviews come from couples who contacted you in the app, after their wedding. Ask them from the enquiry screen.'),
         for (final r in reviews)
           Card(
@@ -548,5 +552,104 @@ class _StatsState extends State<_Stats> {
           ),
       ]),
     );
+  }
+}
+
+/// Featured placement (by the month) and the annual verified badge, bought by the vendor.
+class _Promotions extends StatefulWidget {
+  const _Promotions();
+  @override
+  State<_Promotions> createState() => _PromotionsState();
+}
+
+class _PromotionsState extends State<_Promotions> {
+  Map<String, dynamic>? p;
+  int months = 1;
+  Map<String, dynamic>? bank;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => load());
+  }
+
+  Future<void> load() async {
+    final r = await guard(context, () => AppScope.read(context).api.get('/vendor/promotions'));
+    if (r != null && mounted) setState(() => p = r);
+  }
+
+  Future<void> buy(String product, String method) async {
+    final r = await guard(context, () => AppScope.read(context).api.post('/vendor/checkout', {'product': product, 'months': months, 'method': method}));
+    if (r == null || !mounted) return;
+    if (method == 'bank_transfer') {
+      setState(() => bank = r);
+    } else {
+      await openUrl(r['checkoutUrl'] as String);
+    }
+  }
+
+  String until(String? iso) {
+    if (iso == null) return '';
+    final d = DateTime.parse(iso).toLocal();
+    return d.isAfter(DateTime.now()) ? 'until ${d.day}/${d.month}/${d.year}' : '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final th = Theme.of(context);
+    if (p == null || p!['open'] != true) return const SizedBox.shrink();
+    final prices = p!['prices'] as Map<String, dynamic>;
+    final featuredUntil = until(p!['featured_until'] as String?);
+    final verifiedUntil = until(p!['verified_until'] as String?);
+    final slots = p!['featured_slots_left'] as int;
+    final pending = [for (final x in p!['payments'] as List) if (x['status'] == 'pending' && x['method'] == 'bank_transfer') x];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const Divider(height: 32),
+      Semantics(header: true, child: Text('Get more enquiries', style: th.textTheme.titleLarge)),
+      const SizedBox(height: 8),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Featured placement ${featuredUntil.isEmpty ? '' : '· $featuredUntil'}', style: th.textTheme.titleMedium),
+            const Text('Shown first in your category, always labelled "Featured". A few places per category.'),
+            const SizedBox(height: 8),
+            if (slots < 1)
+              Text('All featured places in your category are taken right now.', style: TextStyle(color: th.colorScheme.error))
+            else
+              Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                DropdownButton<int>(
+                  value: months,
+                  items: [for (final m in const [1, 3, 6, 12]) DropdownMenuItem(value: m, child: Text('$m month${m == 1 ? '' : 's'} · LKR ${(prices['featured_month_lkr'] as int) * m}'))],
+                  onChanged: (v) => setState(() => months = v!),
+                ),
+                FilledButton(onPressed: () => buy('vendor_featured', 'gateway'), child: Text(featuredUntil.isEmpty ? 'Pay by card' : 'Extend by card')),
+                OutlinedButton(onPressed: () => buy('vendor_featured', 'bank_transfer'), child: const Text('Bank transfer')),
+              ]),
+          ]),
+        ),
+      ),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Verified badge ${verifiedUntil.isEmpty ? '' : '· $verifiedUntil'}', style: th.textTheme.titleMedium),
+            Text('A "Verified" label on your profile and in search for 12 months · LKR ${prices['verified_year_lkr']}.'),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              FilledButton(onPressed: () => buy('vendor_verified', 'gateway'), child: Text(verifiedUntil.isEmpty ? 'Pay by card' : 'Renew by card')),
+              OutlinedButton(onPressed: () => buy('vendor_verified', 'bank_transfer'), child: const Text('Bank transfer')),
+            ]),
+          ]),
+        ),
+      ),
+      if (bank != null)
+        Card(
+          color: th.colorScheme.secondaryContainer,
+          child: ListTile(title: Text('Transfer LKR ${bank!['amount_lkr']} with reference ${bank!['reference']}'), subtitle: Text(bank!['instructions'] as String)),
+        ),
+      for (final x in pending) Text('Waiting for transfer ${x['reference']} (LKR ${x['amount_lkr']})', style: th.textTheme.bodySmall),
+      Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: load, icon: const Icon(Icons.refresh), label: const Text('I have paid: refresh'))),
+    ]);
   }
 }

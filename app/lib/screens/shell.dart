@@ -84,7 +84,10 @@ class _ShellState extends State<Shell> {
     ];
     if (index >= tabs.length) index = 0;
     final wide = isWide(context);
-    final body = IndexedStack(index: index, children: [for (final t in tabs) t.$3]);
+    final stack = IndexedStack(index: index, children: [for (final t in tabs) t.$3]);
+    final body = s.offline
+        ? Column(children: [OfflineBanner(at: s.offlineCopyAt!, onRetry: () => guard(context, s.retryOnline)), Expanded(child: stack)])
+        : stack;
 
     return Scaffold(
       appBar: AppBar(

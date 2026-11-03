@@ -25,6 +25,10 @@ export const config = {
   // In development, sign-in codes are returned in the API response instead of being sent.
   exposeDevCodes: (env.EXPOSE_DEV_CODES ?? (env.NODE_ENV === 'production' ? 'false' : 'true')) === 'true',
   runJobs: (env.RUN_JOBS ?? 'true') === 'true',
+  // Staff (admin, support, designer) must use an authenticator app code. On by default in production.
+  staffMfa: (env.STAFF_MFA ?? (env.NODE_ENV === 'production' ? 'required' : 'off')) === 'required',
+  // Encrypts staff authenticator secrets at rest. Falls back to one derived from PREVIEW_SECRET.
+  totpKey: env.TOTP_KEY ?? '',
 } as const;
 
 // Phase 1 prices and free-plan limits (proposals from the feature document).
@@ -33,6 +37,10 @@ export const pricing = {
   // In-app purchase price covers the store's commission.
   passAppLkr: Number(env.PASS_APP_LKR ?? 9900),
   designForMeLkr: Number(env.DESIGN_FOR_ME_LKR ?? 5000),
+  // Vendor money, switched on only once couples use the directory (VENDOR_PROMOTIONS=on).
+  vendorPromotionsOpen: (env.VENDOR_PROMOTIONS ?? 'off') === 'on',
+  vendorFeaturedMonthLkr: Number(env.VENDOR_FEATURED_MONTH_LKR ?? 3000),
+  vendorVerifiedYearLkr: Number(env.VENDOR_VERIFIED_YEAR_LKR ?? 6000),
   freeGuestLimit: Number(env.FREE_GUEST_LIMIT ?? 50),
   freeEventLimit: 1,
   refundWindowDays: 7,

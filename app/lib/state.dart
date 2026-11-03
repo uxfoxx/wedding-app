@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,6 +22,9 @@ class AppState extends ChangeNotifier {
   /// What the person is doing right now: their own wedding, or planner work. Switch from the profile menu.
   String workspace = 'couple';
   bool ready = false;
+  /// Set while the server can't be reached: the app shows the copy saved on this phone.
+  DateTime? offlineCopyAt;
+  bool get offline => offlineCopyAt != null;
 
   /// Invite link opened before sign-in (web panel #join=...); accepted after sign-in.
   String? pendingJoinToken;
@@ -50,6 +55,7 @@ class AppState extends ChangeNotifier {
         await _afterSignIn();
       } on ApiException catch (e) {
         if (e.status == 401) await signOut(callServer: false);
+        if (e.status == 0) await _loadOfflineCopy();
       }
     }
     ready = true;
@@ -145,12 +151,48 @@ class AppState extends ChangeNotifier {
     summary = await api.get('/weddings/$id');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('wedding', id);
+    await _saveOfflineCopy();
     notifyListeners();
   }
 
   Future<void> refresh() async {
     if (weddingId == null) return;
     summary = await api.get('/weddings/$weddingId');
+    await _saveOfflineCopy();
+    notifyListeners();
+  }
+
+  // ---- Offline copy: the open wedding and its guest list, kept on this phone only ----
+  static const _offlineKey = 'offline_copy';
+  static String offlineGuestsKey(String weddingId) => 'offline_guests_$weddingId';
+
+  Future<void> _saveOfflineCopy() async {
+    if (summary == null || user == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_offlineKey, jsonEncode({'at': DateTime.now().toIso8601String(), 'user': user, 'weddings': weddings, 'summary': summary}));
+  }
+
+  Future<void> _loadOfflineCopy() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_offlineKey);
+    if (raw == null) return;
+    final c = jsonDecode(raw) as Map<String, dynamic>;
+    user = c['user'] as Map<String, dynamic>;
+    weddings = c['weddings'] as List<dynamic>;
+    summary = c['summary'] as Map<String, dynamic>;
+    workspace = 'couple';
+    offlineCopyAt = DateTime.parse(c['at'] as String);
+  }
+
+  /// Back online: load everything fresh. Stays on the offline copy if the server is still unreachable.
+  Future<void> retryOnline() async {
+    try {
+      await _afterSignIn();
+      offlineCopyAt = null;
+    } on ApiException catch (e) {
+      if (e.status == 401) await signOut(callServer: false);
+      if (e.status != 0) rethrow;
+    }
     notifyListeners();
   }
 
@@ -198,6 +240,11 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
     await prefs.remove('wedding');
+    // Guest names and numbers must not stay on a phone after sign-out.
+    for (final k in prefs.getKeys().where((k) => k == _offlineKey || k.startsWith('offline_guests_')).toList()) {
+      await prefs.remove(k);
+    }
+    offlineCopyAt = null;
     notifyListeners();
   }
 }

@@ -219,7 +219,7 @@ class _DesignForMeState extends State<_DesignForMe> {
     final s = AppScope.of(context);
     final th = Theme.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Design it for me', style: th.textTheme.titleLarge),
+      Semantics(header: true, child: Text('Design it for me', style: th.textTheme.titleLarge)),
       const Text('Tell us what you like and a designer will build your invitation. From LKR 5,000.'),
       const SizedBox(height: 12),
       for (final j in jobs ?? [])

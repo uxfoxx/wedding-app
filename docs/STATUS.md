@@ -12,11 +12,11 @@ Checked against the feature document. Phase 1 detail first, then Phases 2 and 3.
 - ✅ App language: English, Sinhala, Tamil (🟡 Sinhala/Tamil text needs native review; some app screens fall back to English)
 
 ## Invitation builder
-- 🟡 12 templates as data (5 free, 7 premium with envelope/curtain/scroll openings). The document asks for 15–20; more can be added in the admin API without an app update
+- ✅ 17 templates as data (5 free, 12 premium with envelope/curtain/scroll openings), covering traditional, church, Nikah, Kovil, modern, minimal and homecoming; staff add more in the admin console without an app update
 - ✅ Names, parents, message, dress code, venue, maps, add-to-calendar, countdown, programme, music, gallery links
-- ✅ Wording library in three languages, filled with names, date and venue
+- ✅ Wording library in three languages (26 launch wordings), filled with names, date and venue. Each wording has a tone and a faith: a wedding is only offered wording for its own faith (civil gets none of the religious ones, mixed gets all), plus homecoming or engagement wording when it has that event
 - ✅ Preview as a guest, using the same renderer as the published page
-- 🟡 Photos and music are links for now. Next: signed direct uploads to object storage (architecture decision 4), with phones shrinking images first
+- ✅ Cover photo (Easy and Advanced), gallery of up to 12 photos and background music (Advanced) uploaded straight to storage, with phones shrinking photos first; replaced or removed files are deleted
 
 ## Guests
 - ✅ Add by hand; paste a WhatsApp list (smart import, including Singlish words like "denek", "elawalu"); Excel/CSV; phone contacts (couple ticks who to import)
@@ -31,7 +31,7 @@ Checked against the feature document. Phase 1 detail first, then Phases 2 and 3.
 - ✅ RSVP per event: coming / not coming / maybe, headcount within seats, meal, dietary needs, message
 - ✅ Opened tracking from the page's script only (WhatsApp's link-preview crawler doesn't count)
 - ✅ RSVP dashboard per event, meal counts, follow-up list (7 days, VIPs first for a call), reminders
-- ✅ Export CSV for the venue/caterer (Wedding Pass). 🟡 PDF export: planned as print-to-PDF on the device
+- ✅ Export CSV and a printable guest list and headcount (saved as PDF from the browser) for the venue/caterer, both Wedding Pass
 
 ## Guest page
 - ✅ Static HTML on the CDN, ~24 KB before fonts and photos; per-guest JSON beside it
@@ -47,18 +47,18 @@ Checked against the feature document. Phase 1 detail first, then Phases 2 and 3.
 
 ## Admin console
 - ✅ Daily stats and Phase 1 gate progress, look up users/weddings/payments, confirm transfers, refund, free upgrade, block users, take down pages, design-job queue, audit log, failed jobs
-- ✅ Templates and wording managed through the admin API. 🟡 No admin screens for editing them yet
+- ✅ Templates and wording edited in the admin console (colours, fonts, ornament, opening, faith, tone, publish/hide)
 
 ## Platform
 - ✅ Every request checks the person's role on the wedding; strangers get 404
 - ✅ Database job queue (debounced republish), PDPA purge of guest phone numbers 12 months after the wedding, account deletion
 - ✅ Rate limits on sign-in and guest endpoints, CSV-injection protection, escaped user content on guest pages
-- ⬜ Production storage: S3/R2 client + CDN purge (interface in `api/src/lib/storage.ts`)
+- ✅ Production storage: S3/R2 client with presigned uploads (`S3_*` settings). 🟡 CDN purge for changed guest pages depends on the CDN chosen
 - ⬜ Email/SMS providers (interface in `api/src/lib/notify.ts`)
 - ⬜ Nightly backups, error tracking, uptime checks (architecture decision 8)
-- ⬜ Offline copy of the guest list on the phone
-- ⬜ Staff two-factor sign-in
-- 🟡 Accessibility: Flutter merges some screen text into nearby fields' labels. Add explicit `Semantics` headers
+- ✅ Offline copy: the open wedding and its guest list are kept on the phone and shown, read-only with a banner, when there is no connection; removed on sign-out
+- ✅ Staff two-factor sign-in with an authenticator app (TOTP, secret encrypted, codes single-use, re-asked every 12 hours and on each new device; admins can reset a lost phone). Required by default in production
+- 🟡 Accessibility: section titles are now marked as headings for screen readers; a pass with VoiceOver/TalkBack on real phones is still owed
 
 ## Verified
 - API: 8 tests (smart import, phones, duplicates, full couple flow from sign-up to payment and admin, privacy purge)
@@ -106,16 +106,16 @@ Checked against the feature document. Phase 1 detail first, then Phases 2 and 3.
 - ✅ Public vendor profile pages for social media
 - ✅ Growth: "Create your own invitation" link with attribution, referrals (friend discount + credit), partner QR codes with discounts and co-branded templates, "Real weddings" showcase with permission and approval
 - 🟡 WhatsApp Business automatic reminders: built and off by default (needs Meta approval, a template and a token)
-- 🟡 Vendor money (featured, verified badge): set by admin after payment; self-serve checkout for vendors not built
+- ✅ Vendor money: vendors buy featured placement (by the month, within the category's slots) or the 12-month verified badge in the web panel, by card or bank transfer; refunds take back exactly what was bought. Off until `VENDOR_PROMOTIONS=on`, and never offered in the phone apps (store rules)
 - ⬜ Out of scope by design: booking payments, deposits, commission
 
 ## Verified (all phases)
 
-- API: 14 test suites/cases against PostgreSQL, including end-to-end flows for each phase
+- API: 17 test suites/cases against PostgreSQL, including end-to-end flows for each phase, wording by faith, invitation uploads, staff two-factor and vendor payments
 - Flutter: analyzer clean, widget tests pass, web build succeeds
 - Browser: couple flow (Phase 1), planner flow (dashboard → client wedding → Plan → Guest experience) and vendor flow (setup → inbox → profile) driven in Chromium against the real API
 - Production mode checked: no dev codes, test checkout disabled, warning without object storage
-- Not verified here: iOS/Android builds (no Xcode or Android SDK on this machine), Docker image build (no Docker daemon)
+- iOS: built and run on the iPhone 17 Pro simulator. Not verified here: Android build (no Android SDK), Docker image build (no Docker daemon)
 
 ## Decisions needed from you
 1. LKR payment gateway (for example PayHere) and bank account for transfers

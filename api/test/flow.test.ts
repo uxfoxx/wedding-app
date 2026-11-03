@@ -71,6 +71,48 @@ test('Phase 1 couple flow, end to end', async () => {
   assert.match(filled.body.text, /Nimal & Kumari/);
   assert.match(filled.body.text, /Cinnamon Grand/);
 
+  // The wedding's own list: a Buddhist wedding with only a Poruwa gets Buddhist or any-faith
+  // wedding wording in its language, never Nikah, church or Kovil wording, and no homecoming.
+  const fit = await call('GET', `/weddings/${W}/wordings`, couple);
+  assert.equal(fit.status, 200);
+  assert.ok(fit.body.wordings.length >= 4);
+  for (const w of fit.body.wordings) {
+    assert.equal(w.language, 'en');
+    assert.equal(w.event_kind, 'wedding');
+    assert.ok(w.faith === null || w.faith === 'buddhist', `offered ${w.faith} wording`);
+  }
+  assert.ok(fit.body.wordings.some((w: any) => w.faith === 'buddhist'));
+  const religious = await call('GET', `/weddings/${W}/wordings?tone=religious`, couple);
+  assert.deepEqual(religious.body.wordings.map((w: any) => w.faith), ['buddhist']);
+  const sinhala = await call('GET', `/weddings/${W}/wordings?language=si`, couple);
+  assert.ok(sinhala.body.wordings.length > 0 && sinhala.body.wordings.every((w: any) => w.language === 'si'));
+
+  // Invitation photos and music: uploaded straight to storage, then placed on the invitation.
+  const upload = async (kind: string, type: string, bytes: Buffer) => {
+    const u = await call('POST', `/weddings/${W}/invitation-media`, couple, { kind, content_type: type, size: bytes.length });
+    assert.equal(u.status, 200, JSON.stringify(u.body));
+    const put = await app.inject({ method: 'PUT', url: new URL(u.body.upload_url).pathname, headers: { 'content-type': type }, payload: bytes });
+    assert.equal(put.statusCode, 200);
+    const done = await call('POST', `/weddings/${W}/invitation-media/${u.body.id}/complete`, couple);
+    assert.equal(done.status, 200, JSON.stringify(done.body));
+    return done.body;
+  };
+  assert.equal((await call('POST', `/weddings/${W}/invitation-media`, couple, { kind: 'music', content_type: 'image/png', size: 10 })).status, 400);
+  assert.equal((await call('POST', `/weddings/${W}/invitation-media`, couple, { kind: 'photo', content_type: 'image/png', size: 50 * 1024 * 1024 })).status, 400);
+  const cover1 = await upload('cover', 'image/jpeg', Buffer.from('first cover'));
+  assert.equal(cover1.wedding.invitation.cover_photo_url, cover1.url);
+  const cover2 = await upload('cover', 'image/jpeg', Buffer.from('second cover'));
+  assert.equal(cover2.wedding.invitation.cover_photo_url, cover2.url);
+  const photo = await upload('photo', 'image/webp', Buffer.from('gallery photo'));
+  assert.deepEqual(photo.wedding.invitation.photos, [photo.url]);
+  const song = await upload('music', 'audio/mpeg', Buffer.from('song'));
+  assert.equal(song.wedding.invitation.music_url, song.url);
+  const stored = async () => (await pool.query(`SELECT kind FROM invitation_media WHERE wedding_id=$1 AND ready ORDER BY kind`, [W])).rows.map((r) => r.kind);
+  assert.deepEqual(await stored(), ['cover', 'music', 'photo'], 'the replaced cover is deleted');
+  // Removing a photo from the invitation deletes its file too.
+  assert.equal((await call('PATCH', `/weddings/${W}`, couple, { invitation: { photos: [] } })).status, 200);
+  assert.deepEqual(await stored(), ['cover', 'music']);
+
   // Preview is the same renderer guests get; user text is escaped.
   const prev = await app.inject({ method: 'GET', url: `/api/weddings/${W}/preview`, headers: { authorization: `Bearer ${couple}` } });
   assert.equal(prev.statusCode, 200);
@@ -160,6 +202,7 @@ test('Phase 1 couple flow, end to end', async () => {
   const over = await call('POST', `/weddings/${W}/guests`, couple, { name: 'One too many' });
   assert.equal(over.status, 402);
   assert.equal((await call('GET', `/weddings/${W}/export.csv`, couple)).status, 402);
+  assert.equal((await call('POST', `/weddings/${W}/report-link`, couple, { kind: 'guests' })).status, 402, 'the PDF guest list is paid too');
 
   // Pay on the web: gateway checkout → signed webhook unlocks the wedding.
   const co = await call('POST', `/weddings/${W}/checkout`, couple, { product: 'wedding_pass' });
@@ -182,6 +225,11 @@ test('Phase 1 couple flow, end to end', async () => {
   assert.ok(!html2.includes('<footer>'));
   assert.match(html2, /id="cover" class="envelope"/);
 
+  const pdf = await call('POST', `/weddings/${W}/report-link`, couple, { kind: 'guests' });
+  assert.equal(pdf.status, 200);
+  const report = await app.inject({ method: 'GET', url: new URL(pdf.body.url).pathname + new URL(pdf.body.url).search });
+  assert.equal(report.statusCode, 200);
+  assert.match(report.body, /Guest list and headcount/);
   const csv = await app.inject({ method: 'GET', url: `/api/weddings/${W}/export.csv`, headers: { authorization: `Bearer ${couple}` } });
   assert.equal(csv.statusCode, 200);
   assert.match(csv.body, /Uncle/);

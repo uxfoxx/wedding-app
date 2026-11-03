@@ -17,6 +17,7 @@ import planningRoutes from './routes/planning.ts';
 import experienceRoutes from './routes/experience.ts';
 import vendorRoutes from './routes/vendors.ts';
 import growthRoutes from './routes/growth.ts';
+import invitationMediaRoutes from './routes/invitationMedia.ts';
 
 // Tiny per-IP, per-route rate limiter (requests per minute) for public and sign-in endpoints.
 function rateLimiter(app: FastifyInstance) {
@@ -79,6 +80,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     await api.register(experienceRoutes);
     await api.register(vendorRoutes);
     await api.register(growthRoutes);
+    await api.register(invitationMediaRoutes);
   }, { prefix: '/api' });
 
   // Development: serve published guest pages (stand-in for the CDN) and the Flutter web panel.

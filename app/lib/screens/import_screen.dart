@@ -147,7 +147,7 @@ class _ImportScreenState extends State<ImportScreen> {
     if (rows != null) {
       final over = meta?['limit'] != null && (meta!['current'] as int) + include.length > (meta!['limit'] as int);
       body = PageBody(children: [
-        Text(s.t('checkRows'), style: th.textTheme.titleLarge),
+        Semantics(header: true, child: Text(s.t('checkRows'), style: th.textTheme.titleLarge)),
         const SizedBox(height: 4),
         const Text('Tap a guest to fix it. Rows marked with a warning need a look.'),
         if (over) Card(color: th.colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(12), child: Text('The free plan holds up to ${meta!['limit']} guests. You have ${meta!['current']}. Untick some guests or get the Wedding Pass.'))),
@@ -175,7 +175,7 @@ class _ImportScreenState extends State<ImportScreen> {
       ]);
     } else if (widget.format == 'paste') {
       body = PageBody(children: [
-        Text(s.t('importPaste'), style: th.textTheme.titleLarge),
+        Semantics(header: true, child: Text(s.t('importPaste'), style: th.textTheme.titleLarge)),
         const SizedBox(height: 8),
         const Text('One guest per line, or separated by " / ". Counts ("2 people"), "& wife", "family", phone numbers and "veg" are understood.'),
         const SizedBox(height: 12),
