@@ -10,6 +10,7 @@ import { loadRenderInput, openLink, publishWedding } from '../lib/publisher.ts';
 import { renderGuestPage } from '../lib/renderer.ts';
 import { HttpError, bad, int, notFound, oneOf, randomToken, safeEqual, sha256, str } from '../lib/util.ts';
 import { fill } from '../lib/i18n.ts';
+import { pruneInvitationMedia } from './invitationMedia.ts';
 
 const KINDS = ['wedding', 'engagement', 'homecoming', 'other'] as const;
 const TYPES = ['buddhist', 'hindu', 'muslim', 'christian', 'civil', 'mixed'] as const;
@@ -26,7 +27,7 @@ function parseDate(v: unknown, field: string): Date {
 
 function url(v: unknown, field: string): string | null {
   const s = str(v, field, { max: 1000, optional: true });
-  if (s && !/^https:\/\//i.test(s)) throw bad('invalid_input', `${field} must start with https://`);
+  if (s && !/^https:\/\//i.test(s) && !s.startsWith(config.mediaBaseUrl + '/')) throw bad('invalid_input', `${field} must start with https://`);
   return s;
 }
 
@@ -157,6 +158,7 @@ export default async function weddingRoutes(app: FastifyInstance) {
     }
     if (!sets.length) throw bad('nothing_to_update');
     await pool.query(`UPDATE weddings SET ${sets.join(', ')} WHERE id=$1`, vals);
+    if (b.invitation !== undefined) await pruneInvitationMedia(a.weddingId);
     const w = await one('SELECT published_at FROM weddings WHERE id=$1', [a.weddingId]);
     if (w.published_at) await enqueuePublish(a.weddingId);
     return weddingSummary(a.weddingId, a.role);
@@ -285,9 +287,25 @@ export default async function weddingRoutes(app: FastifyInstance) {
 
   app.get('/wordings', async (req) => {
     const { language, tone, event_kind } = req.query as any;
-    const rows = await q(`SELECT id, language, tone, event_kind, body FROM wordings WHERE published
+    const rows = await q(`SELECT id, language, tone, event_kind, faith, body FROM wordings WHERE published
       AND ($1::text IS NULL OR language=$1) AND ($2::text IS NULL OR tone=$2) AND ($3::text IS NULL OR event_kind=$3) ORDER BY language, tone`,
       [language ?? null, tone ?? null, event_kind ?? null]);
+    return { wordings: rows };
+  });
+
+  // Wording assistant: only the wording that fits this wedding. Faith follows the wedding type
+  // (civil gets no religious wording, mixed gets every faith), and homecoming or engagement
+  // wording appears only when the wedding has that event. Optional tone and language filters.
+  app.get('/weddings/:weddingId/wordings', async (req) => {
+    const a = await weddingAccess(req, 'view');
+    const { tone, language } = req.query as any;
+    const w = await one('SELECT language, wedding_type FROM weddings WHERE id=$1', [a.weddingId]);
+    const kinds = ['wedding', ...(await q<{ kind: string }>(`SELECT DISTINCT kind FROM events WHERE wedding_id=$1 AND kind IN ('homecoming','engagement')`, [a.weddingId])).map((r) => r.kind)];
+    const rows = await q(`SELECT id, language, tone, event_kind, faith, body FROM wordings WHERE published
+      AND language=$1 AND event_kind = ANY($2) AND ($3::text IS NULL OR tone=$3)
+      AND (faith IS NULL OR $4 = 'mixed' OR faith = $4)
+      ORDER BY (event_kind <> 'wedding'), event_kind, array_position(ARRAY['formal','religious','modern','casual'], tone), faith NULLS FIRST`,
+      [language && ['en', 'si', 'ta'].includes(language) ? language : w.language, kinds, tone ?? null, w.wedding_type]);
     return { wordings: rows };
   });
 

@@ -57,7 +57,7 @@ class Root extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    if (!s.ready) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (!s.ready) return const Scaffold(body: Center(child: CircularProgressIndicator.adaptive()));
     if (s.user == null) return const SignInScreen();
     if (s.inPlannerWorkspace && s.summary == null) return const PlannerHome();
     if (s.inVendorWorkspace) return const VendorHome();

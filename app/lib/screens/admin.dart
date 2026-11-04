@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
+import 'admin_content.dart';
 
 /// Admin console (staff role). Same app and web panel; every change is audited on the server.
 class AdminScreen extends StatefulWidget {
@@ -15,6 +16,8 @@ class _AdminScreenState extends State<AdminScreen> {
   List<dynamic> designJobs = [];
   Map<String, dynamic>? results;
   final search = TextEditingController();
+  /// Staff two-factor state from /me; the console stays locked until this session is verified.
+  Map<String, dynamic>? mfa;
 
   @override
   void didChangeDependencies() {
@@ -24,6 +27,14 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Future<void> load() async {
     final s = AppScope.read(context);
+    final me = await guard(context, () => s.api.get('/me'));
+    if (me == null || !mounted) return;
+    final m = me['staff_mfa'] as Map<String, dynamic>?;
+    if (m != null && m['required'] == true && m['verified'] != true) {
+      setState(() => mfa = m);
+      return;
+    }
+    setState(() => mfa = null);
     final r = await guard(context, () async => [
           await s.api.get('/admin/stats'),
           await s.api.get('/admin/payments', {'status': 'pending'}),
@@ -58,15 +69,17 @@ class _AdminScreenState extends State<AdminScreen> {
     final days = (stats?['days'] as List?) ?? [];
     return Scaffold(
       appBar: AppBar(title: Text(s.t('admin')), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
-      body: stats == null
-          ? const Center(child: CircularProgressIndicator())
+      body: mfa != null
+          ? StaffMfaGate(enabled: mfa!['enabled'] == true, onVerified: load)
+          : stats == null
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(maxWidth: 1100, children: [
-              Text('Phase 1 gate', style: th.textTheme.titleLarge),
-              Wrap(spacing: 8, children: [
-                SizedBox(width: 220, child: StatTile('Weddings that sent (target ${gate['weddingsSent']['target']})', gate['weddingsSent']['now'])),
-                SizedBox(width: 220, child: StatTile('Paid weddings (target ${gate['paid']['target']})', gate['paid']['now'])),
-                SizedBox(width: 220, child: StatTile('Pending transfers', stats!['totals']['pending_transfers'])),
-                SizedBox(width: 220, child: StatTile('Failed jobs', stats!['totals']['failed_jobs'], color: (stats!['totals']['failed_jobs'] as int) > 0 ? th.colorScheme.error : null)),
+              Semantics(header: true, child: Text('Phase 1 gate', style: th.textTheme.titleLarge)),
+              StatGrid(cols: isWide(context) ? 4 : 2, children: [
+                StatTile('Weddings that sent (target ${gate['weddingsSent']['target']})', gate['weddingsSent']['now']),
+                StatTile('Paid weddings (target ${gate['paid']['target']})', gate['paid']['now']),
+                StatTile('Pending transfers', stats!['totals']['pending_transfers']),
+                StatTile('Failed jobs', stats!['totals']['failed_jobs'], color: (stats!['totals']['failed_jobs'] as int) > 0 ? th.colorScheme.error : null),
               ]),
               const SizedBox(height: 16),
               Text('Last 14 days', style: th.textTheme.titleMedium),
@@ -84,7 +97,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 ]),
               ),
               const Divider(height: 32),
-              Text('Queues', style: th.textTheme.titleLarge),
+              Semantics(header: true, child: Text('Queues', style: th.textTheme.titleLarge)),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final q in [
                   ('Planners to approve', Icons.business_center_outlined, 'planners', stats!['totals']['pending_planners']),
@@ -94,14 +107,20 @@ class _AdminScreenState extends State<AdminScreen> {
                 ])
                   ActionChip(avatar: Icon(q.$2, size: 18), label: Text('${q.$1}${q.$4 != null ? ' (${q.$4})' : ''}'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AdminQueue(kind: q.$3)))),
               ]),
+              const SizedBox(height: 16),
+              Semantics(header: true, child: Text('Content', style: th.textTheme.titleLarge)),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                ActionChip(avatar: const Icon(Icons.palette_outlined, size: 18), label: const Text('Templates'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminTemplates()))),
+                ActionChip(avatar: const Icon(Icons.format_quote_outlined, size: 18), label: const Text('Wording library'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminWordings()))),
+              ]),
               const Divider(height: 32),
-              Text('Bank transfers to confirm', style: th.textTheme.titleLarge),
+              Semantics(header: true, child: Text('Bank transfers to confirm', style: th.textTheme.titleLarge)),
               if (pending.isEmpty) const Text('None waiting.'),
               for (final p in pending)
                 Card(
                   child: ListTile(
                     title: Text('${p['reference']} · LKR ${p['amount_lkr']}'),
-                    subtitle: Text('${p['partner1']} & ${p['partner2']} · ${p['email'] ?? ''}'),
+                    subtitle: Text('${p['business_name'] != null ? 'Vendor: ${p['business_name']} (${p['product'] == 'vendor_verified' ? 'verified badge' : 'featured ${p['months']} mo'})' : '${p['partner1']} & ${p['partner2']}'} · ${p['email'] ?? ''}'),
                     trailing: FilledButton(
                       onPressed: () async {
                         await guard(context, () => s.api.post('/admin/payments/${p['id']}/approve'));
@@ -112,7 +131,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   ),
                 ),
               const Divider(height: 32),
-              Text('Look up', style: th.textTheme.titleLarge),
+              Semantics(header: true, child: Text('Look up', style: th.textTheme.titleLarge)),
               TextField(
                 controller: search,
                 decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Email, phone, name, payment reference'),
@@ -178,7 +197,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   ),
               ],
               const Divider(height: 32),
-              Text('"Design it for me" jobs', style: th.textTheme.titleLarge),
+              Semantics(header: true, child: Text('"Design it for me" jobs', style: th.textTheme.titleLarge)),
               if (designJobs.isEmpty) const Text('None yet.'),
               for (final j in designJobs)
                 Card(
@@ -255,7 +274,7 @@ class _AdminQueueState extends State<AdminQueue> {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: items == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(maxWidth: 1000, children: [
               if (items!.isEmpty && extra.isEmpty) const Text('Nothing waiting.'),
               for (final x in items!)
@@ -325,5 +344,73 @@ class _AdminQueueState extends State<AdminQueue> {
                 ),
             ]),
     );
+  }
+}
+
+/// Staff sign-in, second step: set up an authenticator app once, then enter its code on each
+/// new device and every 12 hours.
+class StaffMfaGate extends StatefulWidget {
+  const StaffMfaGate({super.key, required this.enabled, required this.onVerified});
+  final bool enabled;
+  final VoidCallback onVerified;
+  @override
+  State<StaffMfaGate> createState() => _StaffMfaGateState();
+}
+
+class _StaffMfaGateState extends State<StaffMfaGate> {
+  final code = TextEditingController();
+  Map<String, dynamic>? setup;
+  bool busy = false;
+
+  Future<void> start() async {
+    final r = await guard(context, () => AppScope.read(context).api.post('/auth/totp/setup'));
+    if (r != null && mounted) setState(() => setup = r);
+  }
+
+  Future<void> verify() async {
+    setState(() => busy = true);
+    final r = await guard(context, () => AppScope.read(context).api.post('/auth/totp/verify', {'code': code.text.trim()}));
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (r != null) widget.onVerified();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final th = Theme.of(context);
+    final needsSetup = !widget.enabled && setup == null;
+    return PageBody(children: [
+      Icon(Icons.verified_user_outlined, size: 48, color: th.colorScheme.primary),
+      const SizedBox(height: 12),
+      Semantics(header: true, child: Text(widget.enabled ? 'Enter your authenticator code' : 'Set up an authenticator app', style: th.textTheme.titleLarge)),
+      const SizedBox(height: 8),
+      Text(widget.enabled
+          ? 'Open the authenticator app on your phone and type the 6-digit code for Wedding admin.'
+          : 'Staff accounts can refund payments and take pages down, so they need a second step. Use Google Authenticator, Microsoft Authenticator, 1Password or similar.'),
+      const SizedBox(height: 16),
+      if (needsSetup) FilledButton(onPressed: start, child: const Text('Set up now')),
+      if (setup != null) ...[
+        const Text('Add this account to your authenticator app, then type the code it shows.'),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton.icon(onPressed: () => openUrl(setup!['otpauth_url'] as String), icon: const Icon(Icons.open_in_new), label: const Text('Open in authenticator app')),
+          OutlinedButton.icon(onPressed: () => copy(context, setup!['secret'] as String, 'Key copied'), icon: const Icon(Icons.copy), label: const Text('Copy setup key')),
+        ]),
+        const SizedBox(height: 8),
+        SelectableText(setup!['secret'] as String, style: th.textTheme.titleMedium?.copyWith(fontFamily: 'monospace', letterSpacing: 2)),
+        const SizedBox(height: 16),
+      ],
+      if (!needsSetup) ...[
+        TextField(
+          controller: code,
+          keyboardType: TextInputType.number,
+          autofillHints: const [AutofillHints.oneTimeCode],
+          maxLength: 6,
+          decoration: const InputDecoration(labelText: '6-digit code'),
+          onSubmitted: (_) => verify(),
+        ),
+        FilledButton(onPressed: busy ? null : verify, child: const Text('Verify')),
+      ],
+    ]);
   }
 }

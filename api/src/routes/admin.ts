@@ -59,7 +59,9 @@ export default async function adminRoutes(app: FastifyInstance) {
   app.get('/admin/payments', async (req) => {
     await requireStaff(req);
     const status = (req.query as any).status ?? 'pending';
-    return { payments: await q(`SELECT p.*, w.partner1, w.partner2, u.email FROM payments p JOIN weddings w ON w.id=p.wedding_id JOIN users u ON u.id=p.user_id
+    // Vendor payments have no wedding; they show the business name instead.
+    return { payments: await q(`SELECT p.*, w.partner1, w.partner2, v.business_name, u.email FROM payments p LEFT JOIN weddings w ON w.id=p.wedding_id
+      LEFT JOIN vendors v ON v.id=p.vendor_id JOIN users u ON u.id=p.user_id
       WHERE p.status=$1 ORDER BY p.created_at DESC LIMIT 200`, [status]) };
   });
 
@@ -89,6 +91,11 @@ export default async function adminRoutes(app: FastifyInstance) {
       const other = await one(`SELECT 1 FROM payments WHERE wedding_id=$1 AND product='wedding_pass' AND status='paid' AND id<>$2`, [p.wedding_id, p.id]);
       if (!other) await pool.query(`UPDATE weddings SET plan='free', paid_at=NULL WHERE id=$1`, [p.wedding_id]);
       await enqueuePublish(p.wedding_id);
+    } else if (p.vendor_id && p.months) {
+      // Take back exactly what this payment bought; time from other payments stays.
+      const col = p.product === 'vendor_featured' ? 'featured_until' : 'verified_until';
+      await pool.query(`UPDATE vendors SET ${col} = CASE WHEN ${col} - make_interval(months => $2) > now() THEN ${col} - make_interval(months => $2) END WHERE id=$1`, [p.vendor_id, p.months]);
+      await enqueue('publish_vendor', { vendorId: p.vendor_id }, { key: `publish_vendor:${p.vendor_id}` });
     }
     // The money itself is returned in the gateway's dashboard or by bank transfer.
     await audit(s.id, 'payment.refund', p.id, { reason, override });
@@ -121,6 +128,18 @@ export default async function adminRoutes(app: FastifyInstance) {
   });
 
   // Take down an abusive guest page.
+  // A staff member who lost their phone sets the authenticator app up again on next sign-in.
+  app.post('/admin/users/:id/reset-mfa', async (req) => {
+    const s = await requireStaff(req, ['admin']);
+    const id = (req.params as any).id;
+    const reason = str((req.body as any)?.reason, 'reason', { max: 300 });
+    const r = await pool.query('UPDATE users SET totp_secret=NULL, totp_enabled_at=NULL, totp_last_step=NULL WHERE id=$1 AND staff_role IS NOT NULL', [id]);
+    if (!r.rowCount) throw notFound();
+    await pool.query('UPDATE sessions SET mfa_at=NULL WHERE user_id=$1', [id]);
+    await audit(s.id, 'user.reset_mfa', id, { reason });
+    return { ok: true };
+  });
+
   app.post('/admin/weddings/:id/takedown', async (req) => {
     const s = await requireStaff(req, ['admin']);
     const id = (req.params as any).id;
@@ -134,6 +153,18 @@ export default async function adminRoutes(app: FastifyInstance) {
   });
 
   // Templates and wording are data: publish new ones without an app update.
+  // The lists include unpublished rows, which the couple-facing lists hide.
+  app.get('/admin/templates', async (req) => {
+    await requireStaff(req, ['admin', 'designer']);
+    return { templates: await q('SELECT id, name, category, premium, layout, published, sort, partner_code FROM templates ORDER BY sort, id') };
+  });
+
+  app.get('/admin/wordings', async (req) => {
+    await requireStaff(req, ['admin', 'designer']);
+    return { wordings: await q(`SELECT id, language, tone, event_kind, faith, body, published FROM wordings
+      ORDER BY language, event_kind, array_position(ARRAY['formal','religious','modern','casual'], tone), faith NULLS FIRST`) };
+  });
+
   app.put('/admin/templates/:id', async (req) => {
     const s = await requireStaff(req, ['admin', 'designer']);
     const b = req.body as any;
@@ -158,9 +189,10 @@ export default async function adminRoutes(app: FastifyInstance) {
   app.post('/admin/wordings', async (req) => {
     const s = await requireStaff(req, ['admin', 'designer']);
     const b = req.body as any;
-    const w = await one(`INSERT INTO wordings (language, tone, event_kind, body) VALUES ($1,$2,$3,$4) RETURNING id`, [
+    const w = await one(`INSERT INTO wordings (language, tone, event_kind, faith, body) VALUES ($1,$2,$3,$4,$5) RETURNING id`, [
       oneOf(b.language, 'language', ['en', 'si', 'ta'] as const), oneOf(b.tone, 'tone', ['formal', 'modern', 'religious', 'casual'] as const),
-      str(b.event_kind, 'event_kind', { max: 30 }), str(b.body, 'body', { max: 2000 })]);
+      oneOf(b.event_kind, 'event_kind', ['wedding', 'homecoming', 'engagement'] as const, 'wedding'),
+      b.faith ? oneOf(b.faith, 'faith', ['buddhist', 'hindu', 'muslim', 'christian'] as const) : null, str(b.body, 'body', { max: 2000 })]);
     await audit(s.id, 'wording.create', w.id);
     return { id: w.id };
   });
@@ -168,8 +200,13 @@ export default async function adminRoutes(app: FastifyInstance) {
   app.patch('/admin/wordings/:id', async (req) => {
     const s = await requireStaff(req, ['admin', 'designer']);
     const b = req.body as any;
-    const r = await pool.query('UPDATE wordings SET body=coalesce($2, body), published=coalesce($3, published) WHERE id=$1',
-      [(req.params as any).id, b.body ? str(b.body, 'body', { max: 2000 }) : null, typeof b.published === 'boolean' ? b.published : null]);
+    // faith: a faith, or '' to make the wording suit any wedding; left out = unchanged.
+    const r = await pool.query(`UPDATE wordings SET body=coalesce($2, body), published=coalesce($3, published), tone=coalesce($4, tone),
+        event_kind=coalesce($5, event_kind), faith=CASE WHEN $6::boolean THEN $7 ELSE faith END WHERE id=$1`,
+      [(req.params as any).id, b.body ? str(b.body, 'body', { max: 2000 }) : null, typeof b.published === 'boolean' ? b.published : null,
+        b.tone ? oneOf(b.tone, 'tone', ['formal', 'modern', 'religious', 'casual'] as const) : null,
+        b.event_kind ? oneOf(b.event_kind, 'event_kind', ['wedding', 'homecoming', 'engagement'] as const) : null,
+        b.faith !== undefined, b.faith ? oneOf(b.faith, 'faith', ['buddhist', 'hindu', 'muslim', 'christian'] as const) : null]);
     if (!r.rowCount) throw notFound();
     await audit(s.id, 'wording.update', (req.params as any).id);
     return { ok: true };

@@ -72,6 +72,45 @@ export default async function vendorRoutes(app: FastifyInstance) {
     return { vendor, media: media.map((m) => ({ ...m, url: mediaUrl(m.path) })), packages, public_url: `${config.guestBaseUrl.replace(/\/site$/, '')}/site/vendors/${vendor.slug}.html` };
   });
 
+  // ---- Vendor money: featured placement and the verified badge, paid by the vendor ----
+  // Closed until VENDOR_PROMOTIONS=on (the document: only once couples use the directory).
+  async function featuredSlotsLeft(vendor: any) {
+    const c = await one(`SELECT featured_slots, (SELECT count(*)::int FROM vendors x WHERE x.category=c.id AND x.featured_until > now() AND x.id <> $2) AS used
+      FROM vendor_categories c WHERE c.id=$1`, [vendor.category, vendor.id]);
+    // A vendor already featured keeps its slot when it extends.
+    return vendor.featured_until && new Date(vendor.featured_until) > new Date() ? Math.max(1, c.featured_slots - c.used) : Math.max(0, c.featured_slots - c.used);
+  }
+
+  app.get('/vendor/promotions', async (req) => {
+    const { vendor } = await myVendor(req);
+    return {
+      open: pricing.vendorPromotionsOpen && vendor.status === 'approved',
+      prices: { featured_month_lkr: pricing.vendorFeaturedMonthLkr, verified_year_lkr: pricing.vendorVerifiedYearLkr },
+      featured_until: vendor.featured_until, verified_until: vendor.verified_until,
+      featured_slots_left: await featuredSlotsLeft(vendor),
+      payments: await q(`SELECT id, product, method, amount_lkr, months, status, reference, created_at, paid_at FROM payments WHERE vendor_id=$1 ORDER BY created_at DESC LIMIT 20`, [vendor.id]),
+    };
+  });
+
+  app.post('/vendor/checkout', async (req) => {
+    const { user, vendor } = await myVendor(req);
+    if (!pricing.vendorPromotionsOpen) throw new HttpError(403, 'promotions_closed', 'Paid placements are not open yet.');
+    if (vendor.status !== 'approved') throw bad('not_approved', 'Your profile must be approved first.');
+    const b = req.body as any;
+    const product = oneOf(b?.product, 'product', ['vendor_featured', 'vendor_verified'] as const);
+    const method = oneOf(b?.method, 'method', ['gateway', 'bank_transfer'] as const, 'gateway');
+    const months = product === 'vendor_verified' ? 12 : int(b?.months, 'months', 1, 12, 1);
+    if (product === 'vendor_featured' && (await featuredSlotsLeft(vendor)) < 1) throw new HttpError(409, 'no_featured_slots', 'All featured places in your category are taken. Try again next month.');
+    const amount = product === 'vendor_verified' ? pricing.vendorVerifiedYearLkr : pricing.vendorFeaturedMonthLkr * months;
+    const { reference } = await import('./payments.ts');
+    const p = await one(`INSERT INTO payments (vendor_id, user_id, product, method, amount_lkr, list_price_lkr, months, reference) VALUES ($1,$2,$3,$4,$5,$5,$6,$7) RETURNING id, reference, amount_lkr`,
+      [vendor.id, user.id, product, method, amount, months, reference()]);
+    if (method === 'bank_transfer') {
+      return { paymentId: p.id, reference: p.reference, amount_lkr: p.amount_lkr, status: 'pending', instructions: 'Transfer the amount and use the reference as the description. It starts as soon as the payment is confirmed (usually within one working day).' };
+    }
+    return { paymentId: p.id, reference: p.reference, amount_lkr: p.amount_lkr, checkoutUrl: `${config.publicApiUrl}/api/payments/dev-checkout/${p.id}` };
+  });
+
   app.patch('/vendor', async (req) => {
     const { vendor } = await myVendor(req);
     const b = req.body as any;

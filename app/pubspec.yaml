@@ -40,6 +40,8 @@ dependencies:
   file_picker: ^13.3.1
   flutter_contacts: ^2.6.0
   in_app_purchase: ^3.3.1
+  image: ^4.12.0
+  flutter_animate: ^4.5.2
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +64,15 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # The interface uses the platform's system font (SF Pro on Apple devices). Instrument Serif
+  # (SIL Open Font License, Latin only) is kept for the couple's names, as on a printed invitation.
+  fonts:
+    - family: Instrument Serif
+      fonts:
+        - asset: assets/fonts/instrument-serif-400-normal.ttf
+        - asset: assets/fonts/instrument-serif-400-italic.ttf
+          style: italic
 
   # To add assets to your application, add an assets section, like this:
   # assets:

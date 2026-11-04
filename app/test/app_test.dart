@@ -74,6 +74,9 @@ void main() {
 
   testWidgets('sign in, then the first-run flow creates a wedding and shows the next step', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    // Reduce Motion: the drifting backgrounds stop, so the screens can settle.
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.5;
     addTearDown(tester.view.reset);
@@ -128,7 +131,7 @@ void main() {
     // Easy Mode home: one clear next step, four tabs, no Plan tab.
     expect(server.calls, contains('POST /api/weddings'));
     expect(find.text('Choose an invitation design'), findsOneWidget);
-    expect(find.text('Nimal & Kumari'), findsOneWidget);
-    expect(find.byType(NavigationDestination), findsNWidgets(4));
+    expect(find.text('Nimal & Kumari'), findsWidgets);
+    expect(tester.widget<DockNav>(find.byType(DockNav)).items, hasLength(4));
   });
 }

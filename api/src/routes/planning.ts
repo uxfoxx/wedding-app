@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { config } from '../config.ts';
 import { one, q, pool, tx } from '../db.ts';
 import { weddingAccess } from '../lib/access.ts';
-import { assertFeature } from '../lib/entitlements.ts';
+import { assertFeature, paywall, planInfo } from '../lib/entitlements.ts';
 import { enqueuePublish } from '../lib/jobs.ts';
 import { publishGuest } from '../lib/publisher.ts';
 import { readReply } from '../lib/rsvpReader.ts';
@@ -363,6 +363,8 @@ export default async function planningRoutes(app: FastifyInstance) {
   app.post('/weddings/:weddingId/report-link', async (req) => {
     const a = await weddingAccess(req, 'view');
     const kind = oneOf((req.body as any)?.kind, 'kind', ['guests', 'seating', 'run_sheet', 'qr_board'] as const);
+    // The guest list is the venue/caterer export (PDF), a Wedding Pass feature like the CSV.
+    if (kind === 'guests' && !(await planInfo(a.weddingId)).limits.export) throw paywall('export', 'Exporting the guest list is part of the Wedding Pass.');
     const exp = Date.now() + 30 * 60_000;
     const sig = createHmac('sha256', config.previewSecret).update(`report:${a.weddingId}:${kind}:${exp}`).digest('base64url');
     return { url: `${config.publicApiUrl}/api/reports/${a.weddingId}/${kind}?exp=${exp}&sig=${sig}` };

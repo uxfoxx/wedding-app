@@ -1,6 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../ui.dart';
+import '../upload.dart';
 
 class InvitationTab extends StatefulWidget {
   const InvitationTab({super.key, required this.onGo});
@@ -13,10 +17,16 @@ class _InvitationTabState extends State<InvitationTab> {
   List<dynamic>? templates;
   final parents = TextEditingController();
   final message = TextEditingController();
-  final cover = TextEditingController();
-  final music = TextEditingController();
   String? loadedFor;
   bool busy = false;
+  PageController? carousel;
+  int focused = 0;
+
+  @override
+  void dispose() {
+    carousel?.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -27,8 +37,6 @@ class _InvitationTabState extends State<InvitationTab> {
       final inv = (s.wedding['invitation'] as Map?) ?? {};
       parents.text = inv['parents'] ?? '';
       message.text = inv['message'] ?? '';
-      cover.text = inv['cover_photo_url'] ?? '';
-      music.text = inv['music_url'] ?? '';
     }
     if (templates == null) {
       s.api.get('/templates').then((r) {
@@ -43,7 +51,7 @@ class _InvitationTabState extends State<InvitationTab> {
     final s = AppScope.read(context);
     setState(() => busy = true);
     final r = await guard(context, () => s.api.patch('/weddings/${s.weddingId}', {
-          'invitation': {'parents': parents.text, 'message': message.text, 'cover_photo_url': cover.text, 'music_url': music.text},
+          'invitation': {'parents': parents.text, 'message': message.text},
         }));
     if (r != null) {
       s.setSummary(r);
@@ -82,28 +90,42 @@ class _InvitationTabState extends State<InvitationTab> {
     }
   }
 
+  // Only wording that fits this wedding (its faith and events), in its language; tone chips narrow it.
   Future<void> chooseWording() async {
     final s = AppScope.read(context);
-    final lang = s.wedding['language'] as String? ?? 'en';
-    final r = await guard(context, () => s.api.get('/wordings', {'language': lang}));
+    final r = await guard(context, () => s.api.get('/weddings/${s.weddingId}/wordings'));
     if (r == null || !mounted) return;
     final list = r['wordings'] as List<dynamic>;
+    final tones = [for (final t in const ['formal', 'religious', 'modern', 'casual']) if (list.any((w) => w['tone'] == t)) t];
+    String? tone;
     final picked = await showModalBottomSheet<Map>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (c) => SafeArea(
-        child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(16), children: [
-          Text(s.t('useWording'), style: Theme.of(c).textTheme.titleLarge),
-          for (final w in list)
-            Card(
-              child: ListTile(
-                title: Text(w['body'] as String),
-                subtitle: Text('${w['tone']} · ${w['event_kind']}'),
-                onTap: () => Navigator.pop(c, w as Map),
-              ),
-            ),
-        ]),
+      builder: (c) => StatefulBuilder(
+        builder: (c, setSheet) {
+          final shown = [for (final w in list) if (tone == null || w['tone'] == tone) w];
+          return SafeArea(
+            child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(16), children: [
+              Semantics(header: true, child: Text(s.t('useWording'), style: Theme.of(c).textTheme.titleLarge)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                ChoiceChip(label: Text(s.t('toneAll')), selected: tone == null, onSelected: (_) => setSheet(() => tone = null)),
+                for (final t in tones) ChoiceChip(label: Text(s.t(t)), selected: tone == t, onSelected: (_) => setSheet(() => tone = t)),
+              ]),
+              const SizedBox(height: 8),
+              if (shown.isEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Text(s.t('noWording'), textAlign: TextAlign.center)),
+              for (final w in shown)
+                Card(
+                  child: ListTile(
+                    title: Text(w['body'] as String),
+                    subtitle: Text('${s.t(w['tone'] as String)} · ${s.t(w['event_kind'] as String)}'),
+                    onTap: () => Navigator.pop(c, w as Map),
+                  ),
+                ),
+            ]),
+          );
+        },
       ),
     );
     if (picked == null || !mounted) return;
@@ -115,83 +137,194 @@ class _InvitationTabState extends State<InvitationTab> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final w = s.wedding;
-    final th = Theme.of(context);
     final published = w['published_at'] != null;
     final canEdit = s.canEditAll;
+    final lang = w['language'] as String? ?? 'en';
+    final list = templates;
+    if (list != null && list.isNotEmpty && carousel == null) {
+      focused = list.indexWhere((t) => t['id'] == w['template_id']).clamp(0, list.length - 1);
+      carousel = PageController(viewportFraction: isWide(context) ? 0.28 : 0.52, initialPage: focused);
+    }
+    final current = list == null || list.isEmpty ? null : list[focused] as Map<String, dynamic>;
 
-    return PageBody(maxWidth: 900, children: [
+    return PageBody(title: s.t('invitation'), maxWidth: 900, padding: const EdgeInsets.fromLTRB(16, 4, 16, 28), children: [
       if (published)
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.public),
-            title: Text(s.t('published')),
-            subtitle: Text(w['page_url'] as String),
-            trailing: FilledButton(key: const Key('sendFromInvitation'), onPressed: () => widget.onGo('send'), child: Text(s.t('sendInvites'))),
-          ),
+        Panel(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              const IconTile(CupertinoIcons.globe, tint: Brand.green, size: 40),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Text(s.t('published'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 8),
+                    const _LiveDot(),
+                  ]),
+                  Text(w['page_url'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Brand.ink2, fontSize: 14)),
+                ]),
+              ),
+              IconButton(tooltip: s.t('copyLink'), onPressed: () => copy(context, w['page_url'] as String, s.t('copied')), icon: const Icon(CupertinoIcons.link)),
+            ]),
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              key: const Key('sendFromInvitation'),
+              onPressed: () => widget.onGo('send'),
+              icon: const Icon(CupertinoIcons.paperplane_fill, size: 19),
+              label: Text(s.t('sendInvites')),
+            ),
+          ]),
         ),
-      Text(s.t('chooseDesign'), style: th.textTheme.titleLarge),
-      const SizedBox(height: 8),
-      if (templates == null)
-        const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
-      else
+      SectionHeader(s.t('chooseDesign'), padding: const EdgeInsets.fromLTRB(4, 18, 4, 4)),
+      if (list == null)
+        const Skeleton(height: 290)
+      else if (list.isNotEmpty) ...[
+        // Cover flow: the centred design faces you, its neighbours tilt away.
         SizedBox(
-          height: 190,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: templates!.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (_, i) => _TemplateCard(
-              t: templates![i] as Map<String, dynamic>,
-              selected: w['template_id'] == templates![i]['id'],
-              locked: templates![i]['premium'] == true && !s.isPaid,
-              onTap: canEdit ? () => pickTemplate(templates![i] as Map) : null,
+          height: 300,
+          child: PageView.builder(
+            controller: carousel,
+            itemCount: list.length,
+            clipBehavior: Clip.none,
+            onPageChanged: (i) {
+              HapticFeedback.selectionClick();
+              setState(() => focused = i);
+            },
+            itemBuilder: (_, i) => AnimatedBuilder(
+              animation: carousel!,
+              builder: (_, child) {
+                final page = carousel!.hasClients && carousel!.position.haveDimensions ? carousel!.page ?? focused.toDouble() : focused.toDouble();
+                final d = (page - i).clamp(-1.5, 1.5);
+                return Opacity(
+                  opacity: (1 - 0.35 * d.abs()).clamp(0.3, 1),
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.0012)
+                      ..rotateY(d * 0.55)
+                      ..scaleByDouble(1 - 0.14 * d.abs(), 1 - 0.14 * d.abs(), 1, 1),
+                    child: child,
+                  ),
+                );
+              },
+              child: _TemplateCard(
+                t: list[i] as Map<String, dynamic>,
+                selected: w['template_id'] == list[i]['id'],
+                locked: list[i]['premium'] == true && !s.isPaid,
+                initials: ('${w['partner1']}'.characters.first, '${w['partner2']}'.characters.first),
+                onTap: () {
+                  if (i != focused) {
+                    carousel!.animateToPage(i, duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic);
+                  } else if (canEdit) {
+                    pickTemplate(list[i] as Map);
+                  }
+                },
+              ),
             ),
           ),
         ),
-      const SizedBox(height: 20),
-      Text(s.t('details'), style: th.textTheme.titleLarge),
-      const SizedBox(height: 8),
-      TextField(controller: parents, enabled: canEdit, decoration: InputDecoration(labelText: s.t('parents'))),
-      const SizedBox(height: 12),
-      TextField(controller: message, enabled: canEdit, minLines: 3, maxLines: 8, decoration: InputDecoration(labelText: s.t('message'))),
-      Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: canEdit ? chooseWording : null, icon: const Icon(Icons.auto_awesome_outlined), label: Text(s.t('useWording')))),
-      if (s.isAdvanced) ...[
-        TextField(controller: cover, enabled: canEdit, keyboardType: TextInputType.url, decoration: InputDecoration(labelText: s.t('coverPhoto'))),
-        const SizedBox(height: 12),
-        TextField(controller: music, enabled: canEdit, keyboardType: TextInputType.url, decoration: InputDecoration(labelText: s.t('music'))),
-        const SizedBox(height: 12),
+        if (current != null)
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            layoutBuilder: (cur, prev) => Stack(alignment: Alignment.topCenter, children: [...prev, ?cur]),
+            child: Column(key: ValueKey(current['id']), children: [
+              Text(current['name'] as String, style: Brand.display(22)),
+              const SizedBox(height: 2),
+              Text(
+                '${current['category']}'[0].toUpperCase() + '${current['category']}'.substring(1) + (current['premium'] == true ? ' · Wedding Pass' : ''),
+                style: const TextStyle(color: Brand.ink2, fontSize: 15),
+              ),
+              const SizedBox(height: 12),
+              if (w['template_id'] == current['id'])
+                const StatusTag('In use', Brand.success, filled: true)
+              else if (canEdit)
+                current['premium'] == true && !s.isPaid
+                    ? OutlinedButton.icon(onPressed: () => pickTemplate(current), icon: const Icon(CupertinoIcons.eye, size: 18), label: Text(s.t('preview')))
+                    : FilledButton(style: FilledButton.styleFrom(minimumSize: const Size(0, 44)), onPressed: () => pickTemplate(current), child: Text(s.t('useDesign'))),
+            ]),
+          ),
       ],
-      DropdownButtonFormField<String>(
-        initialValue: w['language'] as String? ?? 'en',
-        decoration: InputDecoration(labelText: s.t('invitationLanguage')),
-        items: const [DropdownMenuItem(value: 'en', child: Text('English')), DropdownMenuItem(value: 'si', child: Text('සිංහල')), DropdownMenuItem(value: 'ta', child: Text('தமிழ்'))],
+      SectionHeader(s.t('details')),
+      Panel(
+        padding: EdgeInsets.zero,
+        child: Column(children: [
+          TextField(controller: parents, enabled: canEdit, decoration: InputDecoration(labelText: s.t('parents'), fillColor: Colors.transparent)),
+          const Divider(indent: 16),
+          TextField(controller: message, enabled: canEdit, minLines: 4, maxLines: 10, decoration: InputDecoration(labelText: s.t('message'), alignLabelWithHint: true, fillColor: Colors.transparent)),
+        ]),
+      ),
+      const SizedBox(height: 10),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(onPressed: canEdit ? chooseWording : null, icon: const Icon(CupertinoIcons.sparkles, size: 18), label: Text(s.t('useWording'))),
+      ),
+      Padding(padding: const EdgeInsets.fromLTRB(16, 20, 16, 8), child: Eyebrow(s.t('invitationLanguage'))),
+      Segmented<String>(
+        value: lang,
+        options: const [('en', 'English'), ('si', 'සිංහල'), ('ta', 'தமிழ்')],
         onChanged: canEdit ? (v) => guard(context, () async => s.setSummary(await s.api.patch('/weddings/${s.weddingId}', {'language': v}))) : null,
       ),
-      const SizedBox(height: 20),
-      Wrap(spacing: 12, runSpacing: 12, children: [
-        OutlinedButton.icon(key: const Key('preview'), onPressed: busy ? null : () => preview(), icon: const Icon(Icons.visibility_outlined), label: Text(s.t('preview'))),
-        if (canEdit) OutlinedButton(onPressed: busy ? null : saveDetails, child: Text(s.t('save'))),
-        if (canEdit) FilledButton.icon(key: const Key('publish'), onPressed: busy ? null : publish, icon: const Icon(Icons.send_outlined), label: Text(s.t('publish'))),
+      SectionHeader(s.t(s.isAdvanced ? 'stepMedia' : 'coverPhoto')),
+      _InvitationMedia(canEdit: canEdit),
+      SectionHeader(s.t('stepShare')),
+      Row(children: [
+        Expanded(child: OutlinedButton.icon(key: const Key('preview'), onPressed: busy ? null : () => preview(), icon: const Icon(CupertinoIcons.eye, size: 19), label: Text(s.t('preview')))),
+        if (canEdit) ...[
+          const SizedBox(width: 10),
+          Expanded(child: OutlinedButton.icon(onPressed: busy ? null : saveDetails, icon: const Icon(CupertinoIcons.tray_arrow_down, size: 19), label: Text(s.t('save')))),
+        ],
       ]),
-      if (published && canEdit) ...[
-        const SizedBox(height: 24),
-        SwitchListTile(
-          title: Text(s.t('openLink')),
-          subtitle: Text(w['open_link'] as String? ?? s.t('openLinkSub')),
-          value: w['open_link'] != null,
-          onChanged: (v) => guard(context, () async => s.setSummary(await s.api.post('/weddings/${s.weddingId}/open-link', {'enabled': v}))),
-        ),
-        if (w['open_link'] != null)
-          Align(alignment: Alignment.centerLeft, child: TextButton.icon(icon: const Icon(Icons.copy), label: Text(s.t('copyLink')), onPressed: () => copy(context, w['open_link'] as String, s.t('copied')))),
+      if (canEdit) ...[
+        const SizedBox(height: 10),
+        FilledButton.icon(key: const Key('publish'), onPressed: busy ? null : publish, icon: const Icon(CupertinoIcons.paperplane_fill, size: 19), label: Text(s.t('publish'))),
       ],
+      if (published && canEdit)
+        RowGroup(header: s.t('openLink'), footer: w['open_link'] as String? ?? s.t('openLinkSub'), children: [
+          ActionRow(
+            icon: CupertinoIcons.person_3_fill,
+            tint: Brand.teal,
+            title: s.t('openLink'),
+            trailing: Switch.adaptive(
+              value: w['open_link'] != null,
+              onChanged: (v) => guard(context, () async => s.setSummary(await s.api.post('/weddings/${s.weddingId}/open-link', {'enabled': v}))),
+            ),
+          ),
+          if (w['open_link'] != null)
+            ActionRow(icon: CupertinoIcons.link, tint: Brand.blue, title: s.t('copyLink'), onTap: () => copy(context, w['open_link'] as String, s.t('copied'))),
+        ]),
     ]);
   }
 }
 
+/// A small pulsing green dot: the page is live.
+class _LiveDot extends StatelessWidget {
+  const _LiveDot();
+  @override
+  Widget build(BuildContext context) {
+    final dot = Container(width: 8, height: 8, decoration: const BoxDecoration(color: Brand.green, shape: BoxShape.circle));
+    if (Brand.reduceMotion(context)) return dot;
+    return SizedBox(
+      width: 18,
+      height: 18,
+      child: Stack(alignment: Alignment.center, children: [
+        Container(width: 18, height: 18, decoration: BoxDecoration(color: Brand.green.withValues(alpha: 0.35), shape: BoxShape.circle))
+            .animate(onPlay: (c) => c.repeat())
+            .scaleXY(begin: 0.4, end: 1, duration: 1400.ms, curve: Curves.easeOut)
+            .fadeOut(duration: 1400.ms, curve: Curves.easeIn),
+        dot,
+      ]),
+    );
+  }
+}
+
+/// A design shown as a tiny invitation: the template's own paper, ink and accent, a frame and
+/// the couple's initials.
 class _TemplateCard extends StatelessWidget {
-  const _TemplateCard({required this.t, required this.selected, required this.locked, this.onTap});
+  const _TemplateCard({required this.t, required this.selected, required this.locked, required this.initials, this.onTap});
   final Map<String, dynamic> t;
   final bool selected, locked;
+  final (String, String) initials;
   final VoidCallback? onTap;
 
   Color _c(String hex) => Color(int.parse('FF${hex.substring(1)}', radix: 16));
@@ -199,36 +332,235 @@ class _TemplateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = t['layout']['palette'] as Map<String, dynamic>;
-    final th = Theme.of(context);
+    final accent = _c(p['accent'] as String);
+    final ink = _c(p['ink'] as String);
     return Semantics(
       button: true,
       selected: selected,
       label: '${t['name']}${locked ? ', Wedding Pass' : ''}',
-      child: InkWell(
+      excludeSemantics: true,
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: 140,
-          decoration: BoxDecoration(
-            color: _c(p['bg'] as String),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: selected ? th.colorScheme.primary : Colors.black12, width: selected ? 3 : 1),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              color: _c(p['bg'] as String),
+              shape: Brand.squircle(22, side: BorderSide(color: selected ? Brand.accent : Colors.black.withValues(alpha: 0.06), width: selected ? 2.5 : 1)),
+              shadows: [BoxShadow(color: Colors.black.withValues(alpha: 0.16), blurRadius: 24, offset: const Offset(0, 12))],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(11),
+              child: Stack(children: [
+                Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: accent.withValues(alpha: 0.55))))),
+                Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text('TOGETHER WITH THEIR FAMILIES', textAlign: TextAlign.center, style: TextStyle(fontSize: 6, letterSpacing: 1, color: ink.withValues(alpha: 0.6), fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 14),
+                    Text(initials.$1.toUpperCase(), style: Brand.serifDisplay(46, color: ink)),
+                    Text('&', style: Brand.serifDisplay(28, color: accent, style: FontStyle.italic)),
+                    Text(initials.$2.toUpperCase(), style: Brand.serifDisplay(46, color: ink)),
+                    const SizedBox(height: 14),
+                    Flourish(color: accent, width: 60),
+                  ]),
+                ),
+                if (locked || selected)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(color: selected ? Brand.accent : Colors.black.withValues(alpha: 0.75), shape: BoxShape.circle),
+                      child: Icon(selected ? CupertinoIcons.checkmark_alt : CupertinoIcons.lock_fill, size: 12, color: Colors.white),
+                    ),
+                  ),
+              ]),
+            ),
           ),
-          padding: const EdgeInsets.all(12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              if (locked) Icon(Icons.lock_outline, size: 18, color: _c(p['accent'] as String)),
-              const Spacer(),
-              if (selected) Icon(Icons.check_circle, color: th.colorScheme.primary),
-            ]),
-            const Spacer(),
-            Center(child: Text('A & B', style: TextStyle(fontSize: 26, fontFamily: 'serif', color: _c(p['accent'] as String), fontWeight: FontWeight.w700))),
-            const Spacer(),
-            Text(t['name'] as String, style: TextStyle(color: _c(p['ink'] as String), fontWeight: FontWeight.w600)),
-            Text(t['category'] as String, style: TextStyle(color: _c(p['muted'] as String), fontSize: 13)),
-          ]),
         ),
       ),
     );
   }
+}
+
+/// Cover photo for everyone; gallery and background music in Advanced Mode. Files upload straight
+/// to storage and the server puts them on the invitation; removing one deletes the file.
+class _InvitationMedia extends StatefulWidget {
+  const _InvitationMedia({required this.canEdit});
+  final bool canEdit;
+  @override
+  State<_InvitationMedia> createState() => _InvitationMediaState();
+}
+
+class _InvitationMediaState extends State<_InvitationMedia> {
+  String? uploading;
+
+  Future<void> upload(String kind) async {
+    final s = AppScope.read(context);
+    setState(() => uploading = kind);
+    await guard(context, () => pickAndUpload(
+          s.api,
+          startPath: '/weddings/${s.weddingId}/invitation-media',
+          completePath: (id) => '/weddings/${s.weddingId}/invitation-media/$id/complete',
+          extra: {'kind': kind},
+          audio: kind == 'music',
+          single: kind != 'photo',
+          onComplete: (r) => s.setSummary(r),
+        ));
+    if (mounted) setState(() => uploading = null);
+  }
+
+  Future<void> remove(Map<String, dynamic> change) async {
+    final s = AppScope.read(context);
+    final r = await guard(context, () => s.api.patch('/weddings/${s.weddingId}', {'invitation': change}));
+    if (r != null) s.setSummary(r);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final th = Theme.of(context);
+    final inv = (s.wedding['invitation'] as Map?) ?? {};
+    final cover = inv['cover_photo_url'] as String?;
+    final music = inv['music_url'] as String?;
+    final photos = [for (final p in (inv['photos'] as List?) ?? const []) p as String];
+    final can = widget.canEdit && uploading == null;
+    Widget busy(String kind) => uploading == kind
+        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+        : const SizedBox.shrink();
+
+    final hasCover = cover != null && cover.isNotEmpty;
+    final hasMusic = music != null && music.isNotEmpty;
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // Cover: the photo itself, with its buttons on top; an upload tile when there is none.
+      AspectRatio(
+        aspectRatio: 16 / 10,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: hasCover
+              ? Stack(fit: StackFit.expand, children: [
+                  Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, _, _) => Container(color: Brand.sunk, child: const Icon(Icons.broken_image_outlined))),
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Row(children: [
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: Brand.paper, foregroundColor: Brand.ink, minimumSize: const Size(0, 44)),
+                        onPressed: can ? () => upload('cover') : null,
+                        icon: uploading == 'cover' ? busy('cover') : const Icon(Icons.photo_outlined, size: 18),
+                        label: Text(s.t('change')),
+                      ),
+                      const Spacer(),
+                      IconButton.filled(
+                        tooltip: s.t('remove'),
+                        style: IconButton.styleFrom(backgroundColor: Colors.black.withValues(alpha: 0.6), foregroundColor: Colors.white),
+                        onPressed: can ? () => remove({'cover_photo_url': null}) : null,
+                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      ),
+                    ]),
+                  ),
+                ])
+              : _DropTile(
+                  icon: Icons.add_photo_alternate_outlined,
+                  label: s.t('uploadPhoto'),
+                  busy: uploading == 'cover',
+                  onTap: can ? () => upload('cover') : null,
+                ),
+        ),
+      ),
+      if (s.isAdvanced) ...[
+        const SizedBox(height: 22),
+        Row(children: [
+          Expanded(child: Text(s.t('gallery'), style: th.textTheme.titleMedium)),
+          Eyebrow('${photos.length} / 12'),
+        ]),
+        const SizedBox(height: 10),
+        GridView.count(
+          crossAxisCount: isWide(context) ? 6 : 3,
+          padding: EdgeInsets.zero,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          children: [
+            for (final p in photos)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Stack(fit: StackFit.expand, children: [
+                  Image.network(p, fit: BoxFit.cover, errorBuilder: (_, _, _) => Container(color: Brand.sunk, child: const Icon(Icons.broken_image_outlined))),
+                  if (widget.canEdit)
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: IconButton.filled(
+                        tooltip: s.t('remove'),
+                        iconSize: 16,
+                        visualDensity: VisualDensity.compact,
+                        style: IconButton.styleFrom(backgroundColor: Colors.black.withValues(alpha: 0.6), foregroundColor: Colors.white),
+                        onPressed: can ? () => remove({'photos': [for (final q in photos) if (q != p) q]}) : null,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ),
+                ]),
+              ),
+            if (photos.length < 12)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: _DropTile(icon: Icons.add_rounded, label: s.t('addPhotos'), busy: uploading == 'photo', compact: true, onTap: can ? () => upload('photo') : null),
+              ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        RowGroup(children: [
+          ActionRow(
+            icon: hasMusic ? Icons.music_note_rounded : Icons.library_music_outlined,
+            tint: hasMusic ? Brand.accent : null,
+            title: hasMusic ? s.t('musicAdded') : s.t('music'),
+            subtitle: hasMusic ? Uri.parse(music).pathSegments.last : s.t('uploadMusic'),
+            onTap: can ? () => upload('music') : null,
+            trailing: uploading == 'music'
+                ? busy('music')
+                : hasMusic
+                    ? IconButton(tooltip: s.t('remove'), onPressed: can ? () => remove({'music_url': null}) : null, icon: const Icon(Icons.delete_outline_rounded, color: Brand.ink2))
+                    : const Icon(Icons.upload_rounded, color: Brand.ink2),
+          ),
+        ]),
+      ],
+    ]);
+  }
+}
+
+/// An empty slot to tap for an upload.
+class _DropTile extends StatelessWidget {
+  const _DropTile({required this.icon, required this.label, required this.busy, this.onTap, this.compact = false});
+  final IconData icon;
+  final String label;
+  final bool busy, compact;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Brand.sunk,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: busy
+                ? const CircularProgressIndicator.adaptive()
+                : Column(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      width: compact ? 36 : 54,
+                      height: compact ? 36 : 54,
+                      decoration: BoxDecoration(color: Brand.surface, shape: BoxShape.circle, border: Border.all(color: Brand.line)),
+                      child: Icon(icon, size: compact ? 20 : 26),
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text(label, textAlign: TextAlign.center, maxLines: 2, style: TextStyle(fontWeight: FontWeight.w700, fontSize: compact ? 12.5 : 15)),
+                    ),
+                  ]),
+          ),
+        ),
+      );
 }

@@ -44,7 +44,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final th = Theme.of(context);
-    if (data == null) return Scaffold(appBar: AppBar(title: const Text('Budget')), body: const Center(child: CircularProgressIndicator()));
+    if (data == null) return Scaffold(appBar: AppBar(title: const Text('Budget')), body: const Center(child: CircularProgressIndicator.adaptive()));
     final t = data!['totals'] as Map<String, dynamic>;
     final items = (data!['items'] as List).cast<Map<String, dynamic>>();
     final cats = <String, List<Map<String, dynamic>>>{};
@@ -57,11 +57,11 @@ class _BudgetScreenState extends State<BudgetScreen> {
       body: RefreshIndicator(
         onRefresh: load,
         child: PageBody(maxWidth: 900, children: [
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            SizedBox(width: 200, child: StatTile('Planned', lkr(t['estimated'] as num))),
-            SizedBox(width: 200, child: StatTile('Agreed cost', lkr(t['cost'] as num))),
-            SizedBox(width: 200, child: StatTile('Paid', lkr(t['paid'] as num), color: Colors.green.shade700)),
-            SizedBox(width: 200, child: StatTile('Still to pay', lkr(t['due'] as num), color: (t['due'] as num) > 0 ? th.colorScheme.error : null)),
+          StatGrid(cols: isWide(context) ? 4 : 2, children: [
+            StatTile('Planned', lkr(t['estimated'] as num)),
+            StatTile('Agreed cost', lkr(t['cost'] as num)),
+            StatTile('Paid', lkr(t['paid'] as num), color: Brand.success),
+            StatTile('Still to pay', lkr(t['due'] as num), color: (t['due'] as num) > 0 ? th.colorScheme.error : null),
           ]),
           for (final r in data!['reminders'] as List)
             Card(

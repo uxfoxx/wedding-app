@@ -9,7 +9,7 @@ import { config, pricing } from '../config.ts';
 import { one, q, pool, tx } from '../db.ts';
 import { weddingAccess } from '../lib/access.ts';
 import { planInfo } from '../lib/entitlements.ts';
-import { enqueuePublish } from '../lib/jobs.ts';
+import { enqueue, enqueuePublish } from '../lib/jobs.ts';
 import { outbox } from '../lib/notify.ts';
 import { HttpError, bad, escapeHtml, oneOf, randomToken, safeEqual, str } from '../lib/util.ts';
 import { creditBalance, passQuote, rewardReferrer } from './growth.ts';
@@ -39,14 +39,24 @@ export async function markPaid(paymentId: string, opts: { externalId?: string | 
       await c.query(`UPDATE weddings SET plan='pass', paid_at=now() WHERE id=$1`, [p.wedding_id]);
     } else if (p.product === 'design_for_me') {
       await c.query(`UPDATE design_jobs SET status='queued' WHERE wedding_id=$1 AND status='awaiting_payment'`, [p.wedding_id]);
+    } else {
+      // Vendor promotion: extends from today, or from the current end if it is still running.
+      const col = p.product === 'vendor_featured' ? 'featured_until' : 'verified_until';
+      await c.query(`UPDATE vendors SET ${col} = greatest(coalesce(${col}, now()), now()) + make_interval(months => $2) WHERE id=$1`, [p.vendor_id, p.months]);
     }
     return p;
   }).then(async (p) => {
     if (p) {
-      await rewardReferrer(p);
-      await enqueuePublish(p.wedding_id); // removes the "Made with" footer
+      if (p.vendor_id) {
+        await enqueue('publish_vendor', { vendorId: p.vendor_id }, { key: `publish_vendor:${p.vendor_id}` });
+      } else {
+        await rewardReferrer(p);
+        await enqueuePublish(p.wedding_id); // removes the "Made with" footer
+      }
       const u = await one('SELECT email, phone FROM users WHERE id=$1', [p.user_id]);
-      const text = `Thank you! Payment ${p.reference} of LKR ${p.amount_lkr.toLocaleString('en-LK')} received for ${p.product === 'wedding_pass' ? 'the Wedding Pass' : 'Design it for me'}.`;
+      const what: Record<string, string> = { wedding_pass: 'the Wedding Pass', design_for_me: 'Design it for me',
+        vendor_featured: `featured placement (${p.months} month${p.months === 1 ? '' : 's'})`, vendor_verified: 'the verified badge (12 months)' };
+      const text = `Thank you! Payment ${p.reference} of LKR ${p.amount_lkr.toLocaleString('en-LK')} received for ${what[p.product]}.`;
       if (u?.email) await outbox.email(u.email, 'Your receipt', text);
     }
     return p;

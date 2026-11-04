@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config.ts';
 import { one, pool } from '../db.ts';
-import { createSession, requireUser, startCode, upsertUser, verifyCode, verifyIdToken, verifyLink } from '../lib/auth.ts';
+import { createSession, requireUser, staffMfa, startCode, upsertUser, verifyCode, verifyIdToken, verifyLink } from '../lib/auth.ts';
+import { matchStep, newSecret, openSecret, otpauthUrl, sealSecret } from '../lib/totp.ts';
 import { outbox } from '../lib/notify.ts';
 import { normalizePhone } from '../lib/phone.ts';
 import { HttpError, bad, oneOf, sha256, str } from '../lib/util.ts';
@@ -71,7 +72,32 @@ export default async function authRoutes(app: FastifyInstance) {
 
   app.get('/me', async (req) => {
     const u = await requireUser(req);
-    return { user: u };
+    return { user: u, ...(u.staff_role ? { staff_mfa: await staffMfa(req) } : {}) };
+  });
+
+  // ---- Staff two-factor: authenticator app (TOTP) ----
+  // Set up: a new secret, shown once as a QR/otpauth link and as text. Not active until a code is confirmed.
+  app.post('/auth/totp/setup', async (req) => {
+    const u = await requireUser(req);
+    if (!u.staff_role) throw new HttpError(403, 'staff_only');
+    const row = await one('SELECT totp_enabled_at FROM users WHERE id=$1', [u.id]);
+    if (row.totp_enabled_at) throw new HttpError(409, 'mfa_already_enabled', 'An authenticator app is already set up. Ask another admin to reset it.');
+    const secret = newSecret();
+    await pool.query('UPDATE users SET totp_secret=$2, totp_last_step=NULL WHERE id=$1', [u.id, sealSecret(secret)]);
+    return { secret, otpauth_url: otpauthUrl(secret, u.email ?? u.phone ?? u.id) };
+  });
+
+  // Confirm (first time) or verify (each new session, then every 12 hours).
+  app.post('/auth/totp/verify', { config: { rateLimit: 10 } }, async (req) => {
+    const u = await requireUser(req);
+    if (!u.staff_role) throw new HttpError(403, 'staff_only');
+    const row = await one('SELECT totp_secret, totp_enabled_at, totp_last_step FROM users WHERE id=$1', [u.id]);
+    if (!row.totp_secret) throw bad('mfa_not_set_up');
+    const step = matchStep(openSecret(row.totp_secret), String((req.body as any)?.code ?? '').replace(/\s/g, ''), row.totp_last_step === null ? null : Number(row.totp_last_step));
+    if (step === null) throw new HttpError(401, 'invalid_code', 'That code is not right. Check the time on your phone and try the newest code.');
+    await pool.query('UPDATE users SET totp_last_step=$2, totp_enabled_at=coalesce(totp_enabled_at, now()) WHERE id=$1', [u.id, step]);
+    await pool.query('UPDATE sessions SET mfa_at=now() WHERE token_hash=$1', [sha256(req.headers.authorization!.slice(7))]);
+    return { ok: true, staff_mfa: await staffMfa(req) };
   });
 
   app.patch('/me', async (req) => {

@@ -162,7 +162,7 @@ class _SeatingScreenState extends State<SeatingScreen> {
     final wide = isWide(context);
     Widget content;
     if (data == null) {
-      content = const Center(child: CircularProgressIndicator());
+      content = const Center(child: CircularProgressIndicator.adaptive());
     } else {
       final tables = (data!['tables'] as List).cast<Map<String, dynamic>>();
       final guests = (data!['guests'] as List).cast<Map<String, dynamic>>();
@@ -233,7 +233,7 @@ class _SeatingScreenState extends State<SeatingScreen> {
               FilledButton.icon(key: const Key('suggest'), onPressed: busy || tables.isEmpty ? null : suggest, icon: const Icon(Icons.auto_awesome), label: const Text('Suggest a plan')),
               OutlinedButton.icon(onPressed: guests.length < 2 ? null : keepApart, icon: const Icon(Icons.block), label: const Text('Keep apart')),
             ]),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             title: const Text('Show "Find your seat" to guests'),
             subtitle: const Text('Guests see their table on their invitation, and can search on the venue QR board.'),

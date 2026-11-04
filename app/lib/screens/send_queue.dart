@@ -65,7 +65,7 @@ class _SendQueueScreenState extends State<SendQueueScreen> with WidgetsBindingOb
     if (error != null) {
       body = EmptyState(icon: Icons.info_outline, title: title, body: error!, action: s.t('back'), onAction: () => Navigator.pop(context));
     } else if (queue == null) {
-      body = const Center(child: CircularProgressIndicator());
+      body = const Center(child: CircularProgressIndicator.adaptive());
     } else if (i >= queue!.length) {
       body = EmptyState(
         icon: Icons.check_circle_outline,
