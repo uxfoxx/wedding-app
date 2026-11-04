@@ -155,7 +155,7 @@ class _GuestEditorState extends State<GuestEditor> {
             ),
         ],
       ),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: PageBody(maxWidth: 600, children: [
           TextField(key: const Key('guestName'), controller: name, autofocus: isNew, textCapitalization: TextCapitalization.words, decoration: InputDecoration(labelText: s.t('name'), hintText: 'Nimal & family')),
           const SizedBox(height: 12),
@@ -179,7 +179,7 @@ class _GuestEditorState extends State<GuestEditor> {
             ),
             const SizedBox(height: 12),
             TextField(controller: group, decoration: InputDecoration(labelText: s.t('group'))),
-            SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(s.t('vip')), subtitle: const Text('VIPs who have not replied go to the top of the follow-up list'), value: vip, onChanged: (v) => setState(() => vip = v)),
+            SwitchListTile.adaptive(contentPadding: EdgeInsets.zero, title: Text(s.t('vip')), subtitle: const Text('VIPs who have not replied go to the top of the follow-up list'), value: vip, onChanged: (v) => setState(() => vip = v)),
             TextField(controller: dietary, decoration: InputDecoration(labelText: s.t('dietary'))),
             const SizedBox(height: 12),
             TextField(controller: notes, maxLines: 3, decoration: InputDecoration(labelText: s.t('notes'))),

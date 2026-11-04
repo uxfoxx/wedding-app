@@ -221,7 +221,7 @@ class _ImportScreenState extends State<ImportScreen> {
         ),
       ]);
     } else {
-      body = const Center(child: CircularProgressIndicator());
+      body = const Center(child: CircularProgressIndicator.adaptive());
     }
 
     return Scaffold(appBar: AppBar(title: Text(s.t('import'))), body: SafeArea(child: body));

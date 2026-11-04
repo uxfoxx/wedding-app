@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
@@ -33,47 +34,51 @@ class _ReadinessCardState extends State<ReadinessCard> {
     if (r == null) return const SizedBox.shrink();
     final s = AppScope.of(context);
     final score = r!['score'] as int;
+    final next = r!['next'] as List;
     return Panel(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          SizedBox(
-            width: 78,
-            height: 78,
-            child: Stack(alignment: Alignment.center, children: [
-              SizedBox(width: 78, height: 78, child: CircularProgressIndicator(value: score / 100, strokeWidth: 6, strokeCap: StrokeCap.round, color: Brand.accent, backgroundColor: Brand.sunk)),
-              Text('$score', style: Brand.display(32)),
-            ]),
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Semantics(
-              label: 'Your wedding is $score% ready',
-              excludeSemantics: true,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Eyebrow('$score% ${s.t('ready')}', color: Brand.accent),
-                const SizedBox(height: 4),
-                Text(s.t('readiness'), style: Brand.display(30)),
+      padding: EdgeInsets.zero,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          child: Row(children: [
+            SizedBox(
+              width: 76,
+              height: 76,
+              child: Stack(alignment: Alignment.center, children: [
+                ActivityRings(values: [score / 100], colors: const [Brand.accent], size: 76, stroke: 10),
+                AnimatedCount(score, suffix: '%', style: Brand.display(19)),
               ]),
             ),
-          ),
-        ]),
-        if ((r!['next'] as List).isNotEmpty) ...[
-          const SizedBox(height: 14),
-          for (final n in r!['next'] as List) ...[
-            const Divider(),
-            InkWell(
-              onTap: widget.onGo == null ? null : () => widget.onGo!(n['key'] as String),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Brand.accent, shape: BoxShape.circle)),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(n['label'] as String, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15.5))),
-                  if (widget.onGo != null) const Icon(Icons.arrow_forward_rounded, size: 18, color: Brand.ink2),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Semantics(
+                label: 'Your wedding is $score% ready',
+                excludeSemantics: true,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(s.t('readiness'), style: Brand.display(22)),
+                  if (next.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(s.t('nextStep'), style: const TextStyle(color: Brand.ink2, fontSize: 15)),
+                  ],
                 ]),
               ),
             ),
-          ],
+          ]),
+        ),
+        for (final n in next) ...[
+          const Divider(indent: 18),
+          InkWell(
+            onTap: widget.onGo == null ? null : () => widget.onGo!(n['key'] as String),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 13, 16, 13),
+              child: Row(children: [
+                const Icon(CupertinoIcons.circle, size: 20, color: Brand.ink3),
+                const SizedBox(width: 12),
+                Expanded(child: Text(n['label'] as String, style: const TextStyle(fontSize: 17, letterSpacing: -0.43))),
+                if (widget.onGo != null) const Icon(CupertinoIcons.chevron_forward, size: 16, color: Brand.ink3),
+              ]),
+            ),
+          ),
         ],
       ]),
     );
@@ -154,7 +159,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final th = Theme.of(context);
     final isChecklist = widget.kind == 'checklist';
     final title = isChecklist ? 'Checklist' : 'Tasks';
-    if (tasks == null) return Scaffold(appBar: AppBar(title: Text(title)), body: const Center(child: CircularProgressIndicator()));
+    if (tasks == null) return Scaffold(appBar: AppBar(title: Text(title)), body: const Center(child: CircularProgressIndicator.adaptive()));
     final done = tasks!.where((t) => t['done_at'] != null).length;
     String? last;
     final today = DateTime.now().toIso8601String().substring(0, 10);
@@ -326,7 +331,7 @@ class _RunSheetScreenState extends State<RunSheetScreen> {
       ]),
       floatingActionButton: s.canEditAll && (items?.isNotEmpty ?? false) ? FloatingActionButton(onPressed: () => edit(), child: const Icon(Icons.add)) : null,
       body: items == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(children: [
               if (items!.isEmpty)
                 EmptyState(icon: Icons.schedule, title: 'Plan the day minute by minute', body: 'Times, what happens and who is responsible: shared with your planner and family, and printable for suppliers.', action: 'Add first item', onAction: () => edit()),
@@ -431,7 +436,7 @@ class _ClientNotesScreenState extends State<ClientNotesScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Client notes and team')),
       body: !loaded
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(children: [
               TextField(controller: client, decoration: const InputDecoration(labelText: 'Client name')),
               const SizedBox(height: 12),

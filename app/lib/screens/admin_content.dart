@@ -35,7 +35,7 @@ class _AdminTemplatesState extends State<AdminTemplates> {
       appBar: AppBar(title: const Text('Templates')),
       floatingActionButton: FloatingActionButton.extended(onPressed: () => edit(null), icon: const Icon(Icons.add), label: const Text('New template')),
       body: items == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(maxWidth: 900, children: [
               Text('${items!.where((t) => t['published'] == true).length} published · ${items!.where((t) => t['premium'] != true && t['published'] == true).length} free'),
               const SizedBox(height: 8),
@@ -138,8 +138,8 @@ class _TemplateEditorState extends State<_TemplateEditor> {
         TextField(controller: category, decoration: const InputDecoration(labelText: 'Category (traditional, church, nikah, kovil, modern, minimal, homecoming)')),
         const SizedBox(height: 12),
         TextField(controller: sort, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Order in the list')),
-        SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Wedding Pass only'), value: premium, onChanged: (v) => setState(() => premium = v)),
-        SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Published'), subtitle: const Text('Hidden templates stay on weddings already using them'), value: published, onChanged: (v) => setState(() => published = v)),
+        SwitchListTile.adaptive(contentPadding: EdgeInsets.zero, title: const Text('Wedding Pass only'), value: premium, onChanged: (v) => setState(() => premium = v)),
+        SwitchListTile.adaptive(contentPadding: EdgeInsets.zero, title: const Text('Published'), subtitle: const Text('Hidden templates stay on weddings already using them'), value: published, onChanged: (v) => setState(() => published = v)),
         const SizedBox(height: 8),
         Text('Colours', style: Theme.of(context).textTheme.titleMedium),
         for (final e in paletteKeys.entries)
@@ -204,7 +204,7 @@ class _AdminWordingsState extends State<AdminWordings> {
       appBar: AppBar(title: const Text('Wording library')),
       floatingActionButton: FloatingActionButton.extended(onPressed: () => edit(null), icon: const Icon(Icons.add), label: const Text('New wording')),
       body: items == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(maxWidth: 900, children: [
               SegmentedButton<String>(
                 segments: const [ButtonSegment(value: 'en', label: Text('English')), ButtonSegment(value: 'si', label: Text('සිංහල')), ButtonSegment(value: 'ta', label: Text('தமிழ்'))],
@@ -275,7 +275,7 @@ class _WordingEditorState extends State<_WordingEditor> {
         pick('Faith', faith, const {'': 'Any wedding', 'buddhist': 'Buddhist', 'hindu': 'Hindu', 'muslim': 'Muslim', 'christian': 'Christian'}, (v) => faith = v),
         const SizedBox(height: 12),
         TextField(controller: body, minLines: 4, maxLines: 10, decoration: const InputDecoration(labelText: 'Wording', hintText: '{parents} invite you to the wedding of {couple} on {date} at {venue}.')),
-        if (!isNew) SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Published'), value: published, onChanged: (v) => setState(() => published = v)),
+        if (!isNew) SwitchListTile.adaptive(contentPadding: EdgeInsets.zero, title: const Text('Published'), value: published, onChanged: (v) => setState(() => published = v)),
         const SizedBox(height: 20),
         FilledButton(onPressed: save, child: const Text('Save')),
       ]),

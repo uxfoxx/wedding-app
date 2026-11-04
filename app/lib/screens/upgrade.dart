@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
@@ -118,27 +119,35 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
         );
     return Scaffold(
       appBar: AppBar(title: Text(s.t('pass'))),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: PageBody(maxWidth: 640, padding: const EdgeInsets.fromLTRB(16, 0, 16, 32), children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(24, 26, 24, 26),
-            decoration: BoxDecoration(color: Brand.ink, borderRadius: BorderRadius.circular(30)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.auto_awesome_rounded, color: Color(0xFFE9B97A), size: 28),
-              const SizedBox(height: 18),
-              Text(paid ? 'You have the Wedding Pass' : s.t('upgrade'), style: Brand.display(42, color: Brand.paper)),
-              const SizedBox(height: 10),
-              Text('One payment for this wedding, all its events. No subscription.', style: TextStyle(color: Brand.paper.withValues(alpha: 0.7), fontSize: 16)),
-              if (!paid && price != null) ...[
-                const SizedBox(height: 22),
-                const Flourish(color: Color(0xFFE9B97A), width: 80),
-                const SizedBox(height: 18),
-                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  const Padding(padding: EdgeInsets.only(bottom: 10), child: Text('LKR ', style: TextStyle(color: Color(0xFFE9B97A), fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 1))),
-                  Text('$price', style: Brand.display(58, color: Brand.paper)),
+          ClipRSuperellipse(
+            borderRadius: BorderRadius.circular(32),
+            child: Stack(children: [
+              const Positioned.fill(child: MeshBackdrop(colors: [Color(0xFF7A5CFF), Color(0xFFFF5E87), Color(0xFFFFB25E), Color(0xFF3B1F6B)], base: Color(0xFF241338))),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 26, 24, 26),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(CupertinoIcons.sparkles, color: Colors.white, size: 30),
+                  const SizedBox(height: 18),
+                  Text(paid ? 'You have the Wedding Pass' : s.t('upgrade'), style: Brand.display(36, color: Colors.white)),
+                  const SizedBox(height: 10),
+                  Text('One payment for this wedding, all its events. No subscription.', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 17)),
+                  if (!paid && price != null) ...[
+                    const SizedBox(height: 22),
+                    Glass(
+                      dark: true,
+                      radius: 22,
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                      child: Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        const Padding(padding: EdgeInsets.only(bottom: 8), child: Text('LKR ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15))),
+                        AnimatedCount(num.tryParse('$price') ?? 0, style: Brand.display(48, color: Colors.white)),
+                        Padding(padding: const EdgeInsets.only(bottom: 8, left: 8), child: Text('once', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 15))),
+                      ]),
+                    ),
+                  ],
                 ]),
-                Text('once, for this wedding', style: TextStyle(color: Brand.paper.withValues(alpha: 0.6), fontSize: 14)),
-              ],
+              ),
             ]),
           ),
           const SizedBox(height: 12),
@@ -164,7 +173,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
                     Expanded(
                       flex: 13,
                       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Padding(padding: EdgeInsets.only(top: 1, right: 6), child: Icon(Icons.check_rounded, size: 16, color: Brand.accent)),
+                        const Padding(padding: EdgeInsets.only(top: 1, right: 6), child: Icon(CupertinoIcons.checkmark_alt, size: 16, color: Brand.accent)),
                         Expanded(child: cell(r.$3, pass: true)),
                       ]),
                     ),

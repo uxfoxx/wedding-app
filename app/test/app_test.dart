@@ -74,6 +74,9 @@ void main() {
 
   testWidgets('sign in, then the first-run flow creates a wedding and shows the next step', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    // Reduce Motion: the drifting backgrounds stop, so the screens can settle.
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.5;
     addTearDown(tester.view.reset);

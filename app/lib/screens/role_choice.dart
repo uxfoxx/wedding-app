@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
@@ -21,10 +22,10 @@ class RoleChoiceScreen extends StatelessWidget {
                 Row(children: [
                   IconTile(icon, tint: Brand.accent, size: 40),
                   const Spacer(),
-                  Text(n, style: Brand.display(22, color: Brand.ink2)),
+                  Text(n, style: Brand.display(17, color: Brand.ink3)),
                 ]),
                 const SizedBox(height: 18),
-                Text(title, style: Brand.display(28)),
+                Text(title, style: Brand.display(22)),
                 const SizedBox(height: 6),
                 Text(sub, style: const TextStyle(color: Brand.ink2, fontSize: 15)),
               ]),
@@ -33,18 +34,18 @@ class RoleChoiceScreen extends StatelessWidget {
         );
     return Scaffold(
       appBar: AppBar(actions: [TextButton(onPressed: () => s.signOut(), child: Text(s.t('signOut'))), const SizedBox(width: 8)]),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: PageBody(maxWidth: 560, padding: const EdgeInsets.fromLTRB(16, 0, 16, 32), children: [
-          const SectionHeader('Welcome!', size: 52, padding: EdgeInsets.fromLTRB(4, 0, 4, 8)),
+          const SectionHeader('Welcome!', size: 40, padding: EdgeInsets.fromLTRB(4, 0, 4, 8)),
           const Padding(
             padding: EdgeInsets.fromLTRB(4, 0, 4, 18),
             child: Text('Tell us how you will use the app. You can add another role later.', style: TextStyle(color: Brand.ink2, fontSize: 16.5)),
           ),
-          option('01', Icons.favorite_rounded, "I'm planning my wedding", 'For the couple or a family member organising it.', const Key('roleCouple'),
+          option('01', CupertinoIcons.heart_fill, "I'm planning my wedding", 'For the couple or a family member organising it.', const Key('roleCouple'),
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OnboardingScreen(canCancel: true)))),
-          option('02', Icons.work_outline_rounded, "I'm a wedding planner", 'Run all your client weddings, team and tasks in one place.', const Key('rolePlanner'),
+          option('02', CupertinoIcons.briefcase_fill, "I'm a wedding planner", 'Run all your client weddings, team and tasks in one place.', const Key('rolePlanner'),
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlannerSetupScreen()))),
-          option('03', Icons.storefront_outlined, 'I offer wedding services', 'Photographers, decorators, venues and more: get enquiries from couples.', const Key('roleVendor'),
+          option('03', CupertinoIcons.camera_fill, 'I offer wedding services', 'Photographers, decorators, venues and more: get enquiries from couples.', const Key('roleVendor'),
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VendorSetupScreen()))),
         ]),
       ),
@@ -82,7 +83,7 @@ class _PlannerSetupScreenState extends State<PlannerSetupScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Your planner business')),
-        body: SafeArea(
+        body: SafeArea(bottom: false,
           child: PageBody(maxWidth: 560, children: [
             const Text('We check every planner business. You can start your first client wedding straight away.'),
             const SizedBox(height: 16),

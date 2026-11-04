@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
@@ -51,14 +52,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Panel(
           onTap: onTap,
           color: selected ? Brand.accentSoft : Brand.surface,
-          borderColor: selected ? Brand.ink : Brand.line,
+          borderColor: selected ? Brand.accent : null,
           padding: const EdgeInsets.all(18),
           child: Row(children: [
             IconTile(icon, tint: selected ? Brand.accent : null),
             const SizedBox(width: 16),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(label, style: Brand.display(26)),
+                Text(label, style: Brand.display(20)),
                 if (sub.isNotEmpty) ...[const SizedBox(height: 4), Text(sub, style: const TextStyle(color: Brand.ink2, fontSize: 15))],
               ]),
             ),
@@ -67,8 +68,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               duration: const Duration(milliseconds: 180),
               width: 26,
               height: 26,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: selected ? Brand.ink : Colors.transparent, border: Border.all(color: selected ? Brand.ink : Brand.line, width: 1.5)),
-              child: selected ? const Icon(Icons.check_rounded, size: 16, color: Brand.paper) : null,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: selected ? Brand.accent : Colors.transparent, border: Border.all(color: selected ? Brand.accent : Brand.ink3, width: 1.5)),
+              child: selected ? const Icon(CupertinoIcons.checkmark_alt, size: 16, color: Colors.white) : null,
             ),
           ]),
         ),
@@ -98,19 +99,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final s = AppScope.of(context);
     final steps = <Widget>[
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(s.t('whatPlanning'), style: Brand.display(44)),
+        Text(s.t('whatPlanning'), style: Brand.display(34)),
         const SizedBox(height: 20),
-        for (final k in const [('wedding', Icons.favorite_rounded), ('engagement', Icons.diamond_outlined), ('homecoming', Icons.cottage_outlined), ('other', Icons.celebration_outlined)])
+        for (final k in const [('wedding', CupertinoIcons.heart_fill), ('engagement', CupertinoIcons.sparkles), ('homecoming', CupertinoIcons.house_fill), ('other', CupertinoIcons.gift_fill)])
           choice(s.t(k.$1), '', k.$2, kind == k.$1, () => setState(() { kind = k.$1; step = 1; })),
       ]),
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(s.t('mode'), style: Brand.display(44)),
+        Text(s.t('mode'), style: Brand.display(34)),
         const SizedBox(height: 16),
-        choice(s.t('startSimple'), s.t('startSimpleSub'), Icons.bolt_rounded, mode == 'easy', () => setState(() { mode = 'easy'; step = 2; })),
-        choice(s.t('fullTools'), s.t('fullToolsSub'), Icons.tune_rounded, mode == 'advanced', () => setState(() { mode = 'advanced'; step = 2; })),
+        choice(s.t('startSimple'), s.t('startSimpleSub'), CupertinoIcons.bolt_fill, mode == 'easy', () => setState(() { mode = 'easy'; step = 2; })),
+        choice(s.t('fullTools'), s.t('fullToolsSub'), CupertinoIcons.slider_horizontal_3, mode == 'advanced', () => setState(() { mode = 'advanced'; step = 2; })),
       ]),
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(s.t('names'), style: Brand.display(44)),
+        Text(s.t('names'), style: Brand.display(34)),
         const SizedBox(height: 16),
         TextField(key: const Key('p1'), controller: p1, textCapitalization: TextCapitalization.words, decoration: InputDecoration(labelText: s.t('partner1'))),
         const SizedBox(height: 12),
@@ -126,7 +127,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const SizedBox(height: 12),
         Row(children: [
           Expanded(
-            child: pickerField(s.t('date'), date == null ? '—' : '${date!.day}/${date!.month}/${date!.year}', Icons.calendar_today_rounded, key: const Key('date'), () async {
+            child: pickerField(s.t('date'), date == null ? '—' : '${date!.day}/${date!.month}/${date!.year}', CupertinoIcons.calendar, key: const Key('date'), () async {
               final now = DateTime.now();
               final d = await showDatePicker(context: context, firstDate: now.subtract(const Duration(days: 1)), lastDate: DateTime(now.year + 4), initialDate: date ?? now.add(const Duration(days: 120)));
               if (d != null) setState(() => date = d);
@@ -134,7 +135,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: pickerField(s.t('time'), time.format(context), Icons.schedule_rounded, () async {
+            child: pickerField(s.t('time'), time.format(context), CupertinoIcons.clock, () async {
               final t = await showTimePicker(context: context, initialTime: time);
               if (t != null) setState(() => time = t);
             }),
@@ -151,7 +152,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: step > 0
-            ? IconButton(icon: const Icon(Icons.arrow_back), tooltip: s.t('back'), onPressed: () => setState(() => step--))
+            ? IconButton(icon: const Icon(CupertinoIcons.chevron_back), tooltip: s.t('back'), onPressed: () => setState(() => step--))
             : widget.canCancel ? const CloseButton() : null,
         centerTitle: true,
         title: Column(mainAxisSize: MainAxisSize.min, children: [

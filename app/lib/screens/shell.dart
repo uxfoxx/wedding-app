@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
@@ -7,7 +8,6 @@ import 'home_tab.dart';
 import 'invitation_tab.dart';
 import 'marketplace.dart';
 import 'onboarding.dart';
-import 'planner_home.dart';
 import 'plan_tab.dart';
 import 'rsvps_tab.dart';
 import 'send_queue.dart';
@@ -57,14 +57,14 @@ class _ShellState extends State<Shell> {
       case 'run_sheet':
       case 'checklist':
         setState(() => index = s0.isAdvanced ? 4 : index);
-        if (!s0.isAdvanced) Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Plan')), body: const PlanTab())));
+        if (!s0.isAdvanced) Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Scaffold(body: PlanTab())));
       case 'add_event':
       case 'plan':
         final s = AppScope.read(context);
         if (s.isAdvanced) {
           setState(() => index = 4);
         } else {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: Text(s.t('events'))), body: const PlanTab())));
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Scaffold(body: PlanTab())));
         }
       case 'upgrade':
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UpgradeScreen()));
@@ -74,75 +74,28 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final w = s.wedding;
     final tabs = <(String, IconData, Widget)>[
-      (s.t('home'), Icons.space_dashboard_outlined, HomeTab(onGo: go)),
-      (s.t('invitation'), Icons.local_post_office_outlined, InvitationTab(onGo: go)),
-      (s.t('guests'), Icons.groups_2_outlined, GuestsTab(onGo: go)),
-      (s.t('rsvps'), Icons.how_to_reg_outlined, RsvpsTab(onGo: go)),
-      if (s.isAdvanced) (s.t('plan'), Icons.auto_stories_outlined, const PlanTab()),
+      (s.t('home'), CupertinoIcons.house_fill, HomeTab(onGo: go)),
+      (s.t('invitation'), CupertinoIcons.envelope_open_fill, InvitationTab(onGo: go)),
+      (s.t('guests'), CupertinoIcons.person_2_fill, GuestsTab(onGo: go)),
+      (s.t('rsvps'), CupertinoIcons.checkmark_seal_fill, RsvpsTab(onGo: go)),
+      if (s.isAdvanced) (s.t('plan'), CupertinoIcons.square_grid_2x2_fill, const PlanTab()),
     ];
     if (index >= tabs.length) index = 0;
     final wide = isWide(context);
     final stack = IndexedStack(index: index, children: [for (final t in tabs) t.$3]);
-    final body = s.offline
-        ? Column(children: [OfflineBanner(at: s.offlineCopyAt!, onRetry: () => guard(context, s.retryOnline)), Expanded(child: stack)])
-        : stack;
-    final names = '${w['partner1']} & ${w['partner2']}';
-    final initials = '${(w['partner1'] as String? ?? '?').characters.first}${(w['partner2'] as String? ?? '?').characters.first}';
-    final heading = Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        width: 34,
-        height: 34,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(color: Brand.ink, shape: BoxShape.circle),
-        child: Text(initials.toUpperCase(), style: const TextStyle(fontFamily: Brand.serif, color: Brand.paper, fontSize: 15, height: 1)),
-      ),
-      const SizedBox(width: 10),
-      Flexible(child: Text(names, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: Brand.sans, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2))),
-    ]);
+    final body = ShellChrome(
+      leading: s.inPlannerWorkspace
+          ? CupertinoButton(padding: EdgeInsets.zero, onPressed: s.closeWedding, child: const Icon(CupertinoIcons.chevron_back, semanticLabel: 'All client weddings'))
+          : null,
+      trailing: AccountButton(onGo: go),
+      child: s.offline
+          ? Column(children: [SafeArea(bottom: false, child: OfflineBanner(at: s.offlineCopyAt!, onRetry: () => guard(context, s.retryOnline))), Expanded(child: stack)])
+          : stack,
+    );
 
     return Scaffold(
       extendBody: true,
-      appBar: AppBar(
-        toolbarHeight: 64,
-        titleSpacing: s.inPlannerWorkspace ? 0 : 16,
-        leading: s.inPlannerWorkspace ? IconButton(tooltip: 'All client weddings', icon: const Icon(Icons.arrow_back_rounded), onPressed: s.closeWedding) : null,
-        title: s.inPlannerWorkspace ? heading : PopupMenuButton<String>(
-          tooltip: 'Switch wedding',
-          position: PopupMenuPosition.under,
-          onSelected: (id) {
-            if (id == 'new') {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OnboardingScreen(canCancel: true)));
-            } else {
-              guard(context, () => s.openWedding(id));
-            }
-          },
-          itemBuilder: (_) => [
-            for (final x in s.weddings) PopupMenuItem(value: x['id'] as String, child: Text('${x['partner1']} & ${x['partner2']}')),
-            const PopupMenuItem(value: 'new', child: Text('+ New event')),
-          ],
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Flexible(child: heading),
-            const SizedBox(width: 2),
-            const Icon(Icons.keyboard_arrow_down_rounded, size: 22, color: Brand.ink2),
-          ]),
-        ),
-        actions: [
-          if (!s.isPaid)
-            IconButton(
-              tooltip: s.t('pass'),
-              onPressed: () => go('upgrade'),
-              style: IconButton.styleFrom(backgroundColor: Brand.accentSoft, foregroundColor: Brand.accent),
-              icon: const Icon(Icons.auto_awesome_rounded, size: 20),
-            ),
-          const WorkspaceMenu(),
-          if (s.isStaff)
-            IconButton(tooltip: s.t('admin'), icon: const Icon(Icons.shield_outlined), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminScreen()))),
-          IconButton(tooltip: s.t('settings'), icon: const Icon(Icons.tune_rounded), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()))),
-          const SizedBox(width: 6),
-        ],
-      ),
       body: wide
           ? Row(children: [
               NavigationRail(
@@ -151,11 +104,102 @@ class _ShellState extends State<Shell> {
                 onDestinationSelected: (i) => setState(() => index = i),
                 destinations: [for (final t in tabs) NavigationRailDestination(icon: Icon(t.$2), label: Text(t.$1))],
               ),
-              const VerticalDivider(width: 1),
+              const VerticalDivider(width: 0.5),
               Expanded(child: body),
             ])
           : body,
       bottomNavigationBar: wide ? null : DockNav(items: [for (final t in tabs) (t.$1, t.$2)], index: index, onTap: (i) => setState(() => index = i)),
+    );
+  }
+}
+
+/// The couple's monogram in the navigation bar. It opens a sheet to switch wedding or role,
+/// start a new event, see the Wedding Pass, open the admin console or settings.
+class AccountButton extends StatelessWidget {
+  const AccountButton({super.key, required this.onGo, this.light = false});
+  final void Function(String key) onGo;
+  final bool light;
+
+  Future<void> open(BuildContext context) async {
+    final s = AppScope.read(context);
+    final nav = Navigator.of(context);
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (c) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (!s.inPlannerWorkspace)
+              RowGroup(header: s.t('switchWedding'), children: [
+                for (final x in s.weddings)
+                  ActionRow(
+                    icon: CupertinoIcons.heart_fill,
+                    tint: Brand.accent,
+                    title: '${x['partner1']} & ${x['partner2']}',
+                    trailing: x['id'] == s.weddingId ? const Icon(CupertinoIcons.checkmark_alt, color: Brand.accent) : const SizedBox.shrink(),
+                    onTap: () => Navigator.pop(c, 'w:${x['id']}'),
+                  ),
+                ActionRow(icon: CupertinoIcons.add, tint: Brand.blue, title: s.t('newEvent'), onTap: () => Navigator.pop(c, 'new')),
+              ]),
+            RowGroup(header: s.t('account'), children: [
+              if (!s.isPaid) ActionRow(icon: CupertinoIcons.sparkles, tint: Brand.orange, title: s.t('pass'), subtitle: s.t('upgradeSub'), onTap: () => Navigator.pop(c, 'upgrade')),
+              if (s.isPlanner || s.isVendor || s.isStaff)
+                for (final o in [('couple', 'My wedding', CupertinoIcons.heart), if (s.isPlanner) ('planner', 'Planner', CupertinoIcons.briefcase_fill), if (s.isVendor) ('vendor', 'Vendor', CupertinoIcons.bag_fill)])
+                  ActionRow(
+                    icon: o.$3,
+                    tint: Brand.indigo,
+                    title: o.$2,
+                    trailing: s.workspace == o.$1 ? const Icon(CupertinoIcons.checkmark_alt, color: Brand.accent) : const SizedBox.shrink(),
+                    onTap: () => Navigator.pop(c, 'role:${o.$1}'),
+                  ),
+              if (s.isStaff) ActionRow(icon: CupertinoIcons.shield_lefthalf_fill, tint: Brand.gray, title: s.t('admin'), onTap: () => Navigator.pop(c, 'admin')),
+              ActionRow(icon: CupertinoIcons.gear_alt_fill, tint: Brand.gray, title: s.t('settings'), onTap: () => Navigator.pop(c, 'settings')),
+            ]),
+          ]),
+        ),
+      ),
+    );
+    if (picked == null || !context.mounted) return;
+    if (picked == 'new') {
+      nav.push(MaterialPageRoute(builder: (_) => const OnboardingScreen(canCancel: true)));
+    } else if (picked == 'upgrade') {
+      onGo('upgrade');
+    } else if (picked == 'admin') {
+      nav.push(MaterialPageRoute(builder: (_) => const AdminScreen()));
+    } else if (picked == 'settings') {
+      nav.push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+    } else if (picked.startsWith('w:')) {
+      await guard(context, () => s.openWedding(picked.substring(2)));
+    } else if (picked.startsWith('role:')) {
+      await guard(context, () => s.setWorkspace(picked.substring(5)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final w = s.wedding;
+    final initials = '${(w['partner1'] as String? ?? '?').characters.first}${(w['partner2'] as String? ?? '?').characters.first}'.toUpperCase();
+    return Semantics(
+      button: true,
+      label: '${s.t('account')}: ${w['partner1']} & ${w['partner2']}',
+      excludeSemantics: true,
+      child: Pressable(
+        scale: 0.9,
+        onTap: () => open(context),
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFFF7A9A), Brand.accent]),
+            border: Border.all(color: Colors.white.withValues(alpha: light ? 0.7 : 1), width: 2),
+          ),
+          child: Text(initials, style: const TextStyle(fontFamily: Brand.sansDisplay, color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+        ),
+      ),
     );
   }
 }

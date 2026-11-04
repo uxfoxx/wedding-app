@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
@@ -30,18 +31,18 @@ class PlanTab extends StatelessWidget {
           onTap: () => paid && !s.isPaid ? open(const UpgradeScreen()) : open(screen),
         );
     final day = [
-      tile(Icons.event_rounded, s.t('events'), 'Ceremonies, times, venues', const EventsScreen(), tint: Brand.accent),
-      tile(Icons.table_restaurant_outlined, 'Seating', 'Tables and Find your seat', const SeatingScreen(), paid: true),
-      tile(Icons.celebration_outlined, 'Guest experience', 'Updates, menu, photos, songs', const ExperienceScreen(), tint: Brand.gold),
-      tile(Icons.schedule_rounded, 'Run sheet', 'The day, minute by minute', const RunSheetScreen(), paid: true),
-      tile(Icons.storefront_outlined, 'Vendors', 'Suggested for your date', const VendorsScreen(), tint: Brand.success),
-      tile(Icons.print_outlined, 'Reports', 'Print or save as PDF', const ReportsScreen()),
+      tile(CupertinoIcons.calendar, s.t('events'), 'Ceremonies, times, venues', const EventsScreen(), tint: Brand.pink),
+      tile(CupertinoIcons.circle_grid_3x3_fill, 'Seating', 'Tables and Find your seat', const SeatingScreen(), paid: true, tint: Brand.indigo),
+      tile(CupertinoIcons.music_note_2, 'Guest experience', 'Updates, menu, photos, songs', const ExperienceScreen(), tint: Brand.purple),
+      tile(CupertinoIcons.clock_fill, 'Run sheet', 'The day, minute by minute', const RunSheetScreen(), paid: true, tint: Brand.orange),
+      tile(CupertinoIcons.camera_fill, 'Vendors', 'Suggested for your date', const VendorsScreen(), tint: Brand.teal),
+      tile(CupertinoIcons.printer_fill, 'Reports', 'Print or save as PDF', const ReportsScreen(), tint: Brand.gray),
     ];
     final planning = [
-      tile(Icons.checklist_rounded, 'Checklist', 'By months before the day', const TasksScreen(kind: 'checklist'), paid: true),
-      tile(Icons.task_alt_rounded, 'Tasks', 'Due dates and owners', const TasksScreen(kind: 'task')),
-      tile(Icons.account_balance_wallet_outlined, 'Budget', 'Costs, payments, what is due', const BudgetScreen(), paid: true, tint: Brand.accent),
-      if (s.isPlanner && s.wedding['planner_id'] != null) tile(Icons.sticky_note_2_outlined, 'Client notes', 'Private to your team', const ClientNotesScreen()),
+      tile(CupertinoIcons.checkmark_square_fill, 'Checklist', 'By months before the day', const TasksScreen(kind: 'checklist'), paid: true, tint: Brand.green),
+      tile(CupertinoIcons.list_bullet, 'Tasks', 'Due dates and owners', const TasksScreen(kind: 'task'), tint: Brand.blue),
+      tile(CupertinoIcons.creditcard_fill, 'Budget', 'Costs, payments, what is due', const BudgetScreen(), paid: true, tint: Brand.accent),
+      if (s.isPlanner && s.wedding['planner_id'] != null) tile(CupertinoIcons.doc_text_fill, 'Client notes', 'Private to your team', const ClientNotesScreen(), tint: Brand.yellow),
     ];
     final cols = isWide(context) ? 3 : 2;
     Widget grid(List<Widget> tiles) => Column(children: [
@@ -55,11 +56,11 @@ class PlanTab extends StatelessWidget {
               ),
             ),
         ]);
-    return PageBody(maxWidth: 900, padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
+    return PageBody(title: s.t('plan'), maxWidth: 900, padding: const EdgeInsets.fromLTRB(16, 4, 16, 28), children: [
       const ReadinessCard(),
-      SectionHeader(s.t('theDay'), eyebrow: '01'),
+      SectionHeader(s.t('theDay')),
       grid(day),
-      SectionHeader(s.t('planning'), eyebrow: '02', padding: const EdgeInsets.fromLTRB(2, 18, 2, 12)),
+      SectionHeader(s.t('planning')),
       grid(planning),
     ]);
   }
@@ -84,19 +85,15 @@ class _PlanTile extends StatelessWidget {
           onTap: onTap,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              IconTile(icon, tint: tint, size: 42),
+              IconTile(icon, tint: tint, size: 40),
               const Spacer(),
               if (locked)
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(color: Brand.accentSoft, shape: BoxShape.circle),
-                  child: const Icon(Icons.lock_rounded, size: 13, color: Brand.accent),
-                ),
+                const Icon(CupertinoIcons.lock_fill, size: 15, color: Brand.ink3),
             ]),
-            const SizedBox(height: 22),
-            Text(title, style: Brand.display(24)),
-            const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(fontSize: 13.5, color: Brand.ink2, height: 1.35)),
+            const SizedBox(height: 20),
+            Text(title, style: Brand.display(19)),
+            const SizedBox(height: 3),
+            Text(subtitle, style: const TextStyle(fontSize: 14, color: Brand.ink2, height: 1.3, letterSpacing: -0.15)),
           ]),
         ),
       );
@@ -222,7 +219,7 @@ class _EventEditorState extends State<EventEditor> {
             ),
         ],
       ),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: PageBody(maxWidth: 600, children: [
           DropdownButtonFormField<String>(
             initialValue: kind,

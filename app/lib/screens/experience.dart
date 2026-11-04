@@ -52,7 +52,7 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final th = Theme.of(context);
-    if (data == null) return Scaffold(appBar: AppBar(title: const Text('Guest experience')), body: const Center(child: CircularProgressIndicator()));
+    if (data == null) return Scaffold(appBar: AppBar(title: const Text('Guest experience')), body: const Center(child: CircularProgressIndicator.adaptive()));
     final settings = data!['settings'] as Map<String, dynamic>;
     final counts = data!['counts'] as Map<String, dynamic>;
     final links = data!['links'] as Map<String, dynamic>;
@@ -103,13 +103,13 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
           if (!s.isPaid)
             Card(child: ListTile(leading: const Icon(Icons.lock_outline), title: const Text('Part of the Wedding Pass'), subtitle: const Text('Guests upload photos by QR code, leave voice notes and request songs.'), onTap: () => open(const UpgradeScreen())))
           else ...[
-            SwitchListTile(
+            SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: const Text('Guests can upload photos and messages'),
               value: settings['uploads_enabled'] == true,
               onChanged: s.canEditAll ? (v) => guard(context, () => s.api.patch('$base/experience/settings', {'uploads_enabled': v})).then((_) => load()) : null,
             ),
-            SwitchListTile(
+            SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: const Text('Check photos before they appear on the wall'),
               subtitle: const Text('Recommended: the wall is shown on a big screen at the reception.'),
@@ -272,7 +272,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
           ),
         Expanded(
           child: items == null
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator.adaptive())
               : items!.isEmpty
                   ? const Center(child: Text('Nothing here.'))
                   : GridView.extent(
@@ -331,7 +331,7 @@ class _GuestbookScreenState extends State<GuestbookScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Guestbook')),
       body: entries == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(children: [
               if (entries!.isEmpty) const Text('No messages yet. Share the "Share photos & wishes" link or QR code.'),
               for (final e in entries!)
@@ -387,7 +387,7 @@ class _SongsScreenState extends State<SongsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Song requests')),
       body: songs == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(children: [
               const Text('Share this screen with your DJ or band.'),
               for (final x in songs!)

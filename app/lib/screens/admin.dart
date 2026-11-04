@@ -72,7 +72,7 @@ class _AdminScreenState extends State<AdminScreen> {
       body: mfa != null
           ? StaffMfaGate(enabled: mfa!['enabled'] == true, onVerified: load)
           : stats == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(maxWidth: 1100, children: [
               Semantics(header: true, child: Text('Phase 1 gate', style: th.textTheme.titleLarge)),
               StatGrid(cols: isWide(context) ? 4 : 2, children: [
@@ -274,7 +274,7 @@ class _AdminQueueState extends State<AdminQueue> {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: items == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator.adaptive())
           : PageBody(maxWidth: 1000, children: [
               if (items!.isEmpty && extra.isEmpty) const Text('Nothing waiting.'),
               for (final x in items!)

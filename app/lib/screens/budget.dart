@@ -44,7 +44,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final th = Theme.of(context);
-    if (data == null) return Scaffold(appBar: AppBar(title: const Text('Budget')), body: const Center(child: CircularProgressIndicator()));
+    if (data == null) return Scaffold(appBar: AppBar(title: const Text('Budget')), body: const Center(child: CircularProgressIndicator.adaptive()));
     final t = data!['totals'] as Map<String, dynamic>;
     final items = (data!['items'] as List).cast<Map<String, dynamic>>();
     final cats = <String, List<Map<String, dynamic>>>{};

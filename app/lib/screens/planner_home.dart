@@ -101,7 +101,7 @@ class _DashboardState extends State<_Dashboard> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final th = Theme.of(context);
-    if (data == null) return const Center(child: CircularProgressIndicator());
+    if (data == null) return const Center(child: CircularProgressIndicator.adaptive());
     final all = (data!['weddings'] as List).cast<Map<String, dynamic>>();
     final list = all.where((w) => showArchived || w['archived'] != true).toList();
     final p = data!['planner'] as Map<String, dynamic>;
@@ -200,7 +200,7 @@ class _NewClientWeddingState extends State<NewClientWedding> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('New client wedding')),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: PageBody(maxWidth: 600, children: [
           TextField(key: const Key('cw1'), controller: p1, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Partner 1')),
           const SizedBox(height: 12),
@@ -301,7 +301,7 @@ class _TasksState extends State<_Tasks> {
           },
         ),
         const SizedBox(height: 8),
-        if (tasks == null) const Center(child: CircularProgressIndicator()),
+        if (tasks == null) const Center(child: CircularProgressIndicator.adaptive()),
         if (tasks != null && tasks!.isEmpty) const Padding(padding: EdgeInsets.all(24), child: Text('Nothing open. Add tasks inside a client wedding (Plan → Tasks).')),
         for (final t in tasks ?? [])
           Card(
@@ -365,7 +365,7 @@ class _TeamState extends State<_Team> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final isOwner = s.planner?['role'] == 'owner';
-    if (data == null) return const Center(child: CircularProgressIndicator());
+    if (data == null) return const Center(child: CircularProgressIndicator.adaptive());
     final limit = data!['limit'];
     return PageBody(children: [
       Semantics(header: true, child: Text('Team', style: Theme.of(context).textTheme.titleLarge)),

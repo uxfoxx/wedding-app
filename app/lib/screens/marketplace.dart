@@ -136,7 +136,7 @@ class _VendorListState extends State<_VendorList> {
 
   @override
   Widget build(BuildContext context) {
-    if (data == null) return const Center(child: CircularProgressIndicator());
+    if (data == null) return const Center(child: CircularProgressIndicator.adaptive());
     final list = (data!['vendors'] as List).cast<Map<String, dynamic>>();
     final based = data!['based_on'] as Map<String, dynamic>?;
     return RefreshIndicator(
@@ -220,7 +220,7 @@ class _VendorProfileScreenState extends State<VendorProfileScreen> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final th = Theme.of(context);
-    if (data == null) return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
+    if (data == null) return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator.adaptive()));
     final v = data!['vendor'] as Map<String, dynamic>;
     final hasWedding = s.weddingId != null && s.canEditAll;
     return Scaffold(
@@ -323,7 +323,7 @@ class _ShortlistState extends State<_Shortlist> {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    if (list == null) return const Center(child: CircularProgressIndicator());
+    if (list == null) return const Center(child: CircularProgressIndicator.adaptive());
     if (list!.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Save vendors you like, then compare up to three side by side and contact them in one go.', textAlign: TextAlign.center)));
     final chosen = list!.where((v) => picked.contains(v['id'])).cast<Map<String, dynamic>>().toList();
     return RefreshIndicator(
@@ -428,7 +428,7 @@ class _EnquiryComposerState extends State<EnquiryComposer> {
         ),
         const SizedBox(height: 12),
         TextField(key: const Key('enqMsg'), controller: msg, maxLines: 6, decoration: const InputDecoration(labelText: 'Message')),
-        SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Share my budget'), subtitle: const Text('Optional. Vendors see it only if you turn this on.'), value: shareBudget, onChanged: (v) => setState(() => shareBudget = v)),
+        SwitchListTile.adaptive(contentPadding: EdgeInsets.zero, title: const Text('Share my budget'), subtitle: const Text('Optional. Vendors see it only if you turn this on.'), value: shareBudget, onChanged: (v) => setState(() => shareBudget = v)),
         if (shareBudget) TextField(controller: budget, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Budget for this (LKR)')),
         const SizedBox(height: 16),
         FilledButton(
@@ -528,7 +528,7 @@ class _ContactedVendorsState extends State<ContactedVendors> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final th = Theme.of(context);
-    if (list == null) return const Center(child: CircularProgressIndicator());
+    if (list == null) return const Center(child: CircularProgressIndicator.adaptive());
     if (list!.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Vendors you contact appear here with their replies.', textAlign: TextAlign.center)));
     final events = (s.summary?['events'] as List?) ?? [];
     final after = events.isNotEmpty && DateTime.parse(events.last['starts_at'] as String).isBefore(DateTime.now());

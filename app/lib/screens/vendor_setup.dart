@@ -57,7 +57,7 @@ class _VendorSetupScreenState extends State<VendorSetupScreen> {
     final th = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Your business')),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: PageBody(maxWidth: 640, children: [
           const Text('Couples contact you directly. Listing is free. Our team checks every business before it goes live.'),
           const SizedBox(height: 16),

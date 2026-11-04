@@ -2,6 +2,8 @@
 // Sinhala and Tamil must be reviewed by native speakers before launch.
 const Map<String, Map<String, String>> _strings = {
   'en': {
+    'useDesign': 'Use this design',
+    'switchWedding': 'Your weddings', 'newEvent': 'New event',
     'account': 'Account',
     'readiness': 'Wedding readiness',
     'daysToGo': 'days to go', 'today': 'Today', 'ready': 'ready', 'stepOf': 'Step {n} of {total}', 'searchGuests': 'Search by name or phone',
@@ -99,6 +101,8 @@ const Map<String, Map<String, String>> _strings = {
     'openLinkSub': 'One link for a family group chat. Guests type their name to RSVP.',
   },
   'si': {
+    'useDesign': 'මෙම නිර්මාණය භාවිත කරන්න',
+    'switchWedding': 'ඔබේ විවාහ', 'newEvent': 'නව උත්සවයක්',
     'account': 'ගිණුම',
     'readiness': 'විවාහයට සූදානම',
     'daysToGo': 'දින ඉතිරියි', 'today': 'අද', 'ready': 'සූදානම්', 'stepOf': 'පියවර {n} / {total}', 'searchGuests': 'නම හෝ දුරකථනයෙන් සොයන්න',
@@ -141,6 +145,8 @@ const Map<String, Map<String, String>> _strings = {
     'settings': 'සැකසුම්', 'language': 'භාෂාව', 'upgrade': 'Wedding Pass ලබා ගන්න', 'signOut': 'පිටවන්න',
   },
   'ta': {
+    'useDesign': 'இந்த வடிவமைப்பைப் பயன்படுத்து',
+    'switchWedding': 'உங்கள் திருமணங்கள்', 'newEvent': 'புதிய நிகழ்வு',
     'account': 'கணக்கு',
     'readiness': 'திருமணத் தயார்நிலை',
     'daysToGo': 'நாட்கள் உள்ளன', 'today': 'இன்று', 'ready': 'தயார்', 'stepOf': 'படி {n} / {total}', 'searchGuests': 'பெயர் அல்லது தொலைபேசி மூலம் தேடுங்கள்',

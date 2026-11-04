@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../ui.dart';
@@ -72,23 +73,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final s = AppScope.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(s.t('settings'))),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: PageBody(padding: const EdgeInsets.fromLTRB(16, 0, 16, 32), children: [
           SectionHeader(s.t('mode'), size: 24, padding: const EdgeInsets.fromLTRB(2, 8, 2, 10)),
-          SegmentedButton<String>(
-            showSelectedIcon: false,
-            segments: [ButtonSegment(value: 'easy', label: Text(s.t('easy'))), ButtonSegment(value: 'advanced', label: Text(s.t('advanced')))],
-            selected: {s.wedding['mode'] as String? ?? 'easy'},
-            onSelectionChanged: s.canEditAll ? (v) => guard(context, () async => s.setSummary(await s.api.patch('/weddings/${s.weddingId}', {'mode': v.first}))) : null,
+          Segmented<String>(
+            value: s.wedding['mode'] as String? ?? 'easy',
+            options: [('easy', s.t('easy')), ('advanced', s.t('advanced'))],
+            onChanged: s.canEditAll ? (v) => guard(context, () async => s.setSummary(await s.api.patch('/weddings/${s.weddingId}', {'mode': v}))) : null,
           ),
           const Padding(padding: EdgeInsets.fromLTRB(4, 8, 4, 0), child: Text('Switching never deletes anything.', style: TextStyle(color: Brand.ink2, fontSize: 14))),
           SectionHeader(s.t('language'), size: 24, padding: const EdgeInsets.fromLTRB(2, 24, 2, 10)),
-          SegmentedButton<String>(
-            showSelectedIcon: false,
-            segments: const [ButtonSegment(value: 'en', label: Text('English')), ButtonSegment(value: 'si', label: Text('සිංහල')), ButtonSegment(value: 'ta', label: Text('தமிழ்'))],
-            selected: {s.locale},
-            onSelectionChanged: (v) => s.setLocale(v.first),
-          ),
+          Segmented<String>(value: s.locale, options: const [('en', 'English'), ('si', 'සිංහල'), ('ta', 'தமிழ்')], onChanged: s.setLocale),
           SectionHeader(s.t('coOwners'), size: 24, padding: const EdgeInsets.fromLTRB(2, 24, 2, 10)),
           RowGroup(children: [
             for (final m in members ?? [])
@@ -106,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (s.role == 'owner' && m['role'] != 'owner')
                     IconButton(
                       tooltip: 'Remove',
-                      icon: const Icon(Icons.close_rounded, color: Brand.ink2),
+                      icon: const Icon(CupertinoIcons.minus_circle_fill, color: Color(0xFFFF3B30)),
                       onPressed: () async {
                         await guard(context, () => s.api.delete('/weddings/${s.weddingId}/members/${m['id']}'));
                         await load();
@@ -114,19 +109,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                 ]),
               ),
-            if (s.role == 'owner') ActionRow(icon: Icons.group_add_outlined, tint: Brand.accent, title: s.t('inviteHelper'), onTap: inviteHelper, trailing: const Icon(Icons.add_rounded, color: Brand.ink2)),
+            if (s.role == 'owner') ActionRow(icon: CupertinoIcons.person_add_solid, tint: Brand.blue, title: s.t('inviteHelper'), onTap: inviteHelper),
           ]),
           const SizedBox(height: 18),
           RowGroup(children: [
             ActionRow(
-              icon: Icons.card_giftcard_rounded,
-              tint: Brand.gold,
+              icon: CupertinoIcons.gift_fill,
+              tint: Brand.orange,
               title: 'Invite friends',
               subtitle: 'They get a discount; you get credit towards your pass',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReferralScreen())),
             ),
             if (s.role == 'owner' && s.wedding['published_at'] != null)
-              SwitchListTile(
+              SwitchListTile.adaptive(
                 title: const Text('Share our wedding in "Real weddings"'),
                 subtitle: const Text('Your invitation design and the vendors you booked, shown to other couples after our team approves it.'),
                 value: (s.wedding['showcase'] ?? 'off') != 'off',
@@ -139,7 +134,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SectionHeader(s.t('account'), size: 24, padding: const EdgeInsets.fromLTRB(2, 24, 2, 10)),
           RowGroup(children: [
             ActionRow(
-              icon: Icons.logout_rounded,
+              icon: CupertinoIcons.square_arrow_right,
+              tint: Brand.gray,
               title: s.t('signOut'),
               subtitle: s.user?['email'] as String? ?? s.user?['phone'] as String? ?? '',
               onTap: () async {
@@ -147,7 +143,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
               },
             ),
-            ActionRow(icon: Icons.delete_outline_rounded, tint: Brand.accent, title: s.t('deleteAccount'), onTap: deleteAccount),
+            ActionRow(icon: CupertinoIcons.trash_fill, tint: const Color(0xFFFF3B30), title: s.t('deleteAccount'), onTap: deleteAccount),
           ]),
           const SizedBox(height: 14),
           const Padding(
@@ -171,11 +167,7 @@ class AccountScreen extends StatelessWidget {
       body: PageBody(children: [
         Text(s.t('language'), style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
-        SegmentedButton<String>(
-          segments: const [ButtonSegment(value: 'en', label: Text('English')), ButtonSegment(value: 'si', label: Text('සිංහල')), ButtonSegment(value: 'ta', label: Text('தமிழ்'))],
-          selected: {s.locale},
-          onSelectionChanged: (v) => s.setLocale(v.first),
-        ),
+        Segmented<String>(value: s.locale, options: const [('en', 'English'), ('si', 'සිංහල'), ('ta', 'தமிழ்')], onChanged: s.setLocale),
         const Divider(height: 40),
         ListTile(contentPadding: EdgeInsets.zero, title: Text(s.user?['email'] as String? ?? s.user?['phone'] as String? ?? '')),
         OutlinedButton(
@@ -215,7 +207,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Invite friends')),
       body: r == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CupertinoActivityIndicator())
           : PageBody(children: [
               Text('Friends get LKR ${r!['offer']['friend_discount_lkr']} off. You get LKR ${r!['offer']['your_credit_lkr']} credit when they buy the Wedding Pass.', style: th.textTheme.titleMedium),
               const SizedBox(height: 16),

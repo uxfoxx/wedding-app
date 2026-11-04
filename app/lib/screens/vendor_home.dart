@@ -115,7 +115,7 @@ class _EnquiriesState extends State<_Enquiries> {
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context);
-    if (list == null) return const Center(child: CircularProgressIndicator());
+    if (list == null) return const Center(child: CircularProgressIndicator.adaptive());
     if (list!.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No enquiries yet. Couples will contact you here with their wedding date, venue and guest count.', textAlign: TextAlign.center)));
     return RefreshIndicator(
       onRefresh: load,
@@ -166,7 +166,7 @@ class _VendorEnquiryScreenState extends State<VendorEnquiryScreen> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final th = Theme.of(context);
-    if (data == null) return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
+    if (data == null) return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator.adaptive()));
     final e = data!['enquiry'] as Map<String, dynamic>;
     return Scaffold(
       appBar: AppBar(title: Text('${e['partner1']} & ${e['partner2']}')),
@@ -276,7 +276,7 @@ class _ProfileState extends State<_Profile> {
               TextField(controller: includes, maxLines: 3, decoration: const InputDecoration(labelText: "What's included")),
               const SizedBox(height: 8),
               TextField(controller: price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Starting price (LKR)')),
-              SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Price is negotiable'), value: negotiable, onChanged: (v) => set(() => negotiable = v)),
+              SwitchListTile.adaptive(contentPadding: EdgeInsets.zero, title: const Text('Price is negotiable'), value: negotiable, onChanged: (v) => set(() => negotiable = v)),
             ]),
           ),
           actions: [
@@ -433,7 +433,7 @@ class _AvailabilityState extends State<_Availability> {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    if (blocked == null) return const Center(child: CircularProgressIndicator());
+    if (blocked == null) return const Center(child: CircularProgressIndicator.adaptive());
     return PageBody(children: [
       Semantics(header: true, child: Text('Booked dates', style: Theme.of(context).textTheme.titleLarge)),
       const Text('Couples searching for these dates won\'t see you, so you only get enquiries you can take.'),
@@ -492,7 +492,7 @@ class _StatsState extends State<_Stats> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final th = Theme.of(context);
-    if (stats == null) return const Center(child: CircularProgressIndicator());
+    if (stats == null) return const Center(child: CircularProgressIndicator.adaptive());
     final days = (stats!['days'] as List).cast<Map<String, dynamic>>();
     final maxV = days.fold<int>(1, (m, d) => (d['views'] as int) > m ? d['views'] as int : m);
     return RefreshIndicator(
